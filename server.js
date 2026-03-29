@@ -30,8 +30,8 @@ app.post('/api/register', (req, res) => {
 });
 
 app.get('/api/users', (req, res) => {
-  const userList = Array.from(userSockets.entries()).map(([id, socketId]) => ({
-    userId: id,
+  const userList = Array.from(userSockets.entries()).map(([userId, socketId]) => ({
+    userId: userId,
     username: users.get(socketId)?.username || 'Unknown',
     online: true
   }));
