@@ -156,6 +156,10 @@
         .contact-name {
             font-weight: 600;
         }
+        .contact-status {
+            font-size: 12px;
+            color: #2ea6ff;
+        }
         .call-buttons {
             display: flex;
             gap: 8px;
@@ -219,8 +223,15 @@
             font-size: 24px;
             transition: transform 0.2s;
         }
+        .control-btn:hover {
+            transform: scale(1.05);
+        }
         .control-btn.end-call {
             background: #dc2626;
+            color: white;
+        }
+        .control-btn.toggle {
+            background: #2ea6ff;
             color: white;
         }
         .incoming-call {
@@ -246,6 +257,17 @@
             padding: 40px;
             color: #8b949e;
         }
+        .debug-info {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            font-size: 10px;
+            color: #666;
+            background: rgba(0,0,0,0.5);
+            padding: 4px 8px;
+            border-radius: 4px;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
@@ -257,7 +279,7 @@
         <input type="text" id="regUsername" class="auth-input" placeholder="Ваше имя">
         <input type="text" id="regUserId" class="auth-input" placeholder="Ваш ID (например: mama)">
         <button class="auth-btn" id="registerBtn">Зарегистрироваться</button>
-        <p style="font-size: 12px; color: #8b949e; margin-top: 20px;">Скажите свой ID маме, чтобы она могла вам позвонить!</p>
+        <p style="font-size: 12px; color: #8b949e; margin-top: 20px;">Скажите свой ID собеседнику, чтобы он мог вам позвонить!</p>
     </div>
 </div>
 
@@ -280,6 +302,7 @@
         <div class="call-area" id="callArea">
             <div class="call-header">
                 <h2 id="callWithName">Готов к звонкам</h2>
+                <div id="callStatusText" style="font-size: 12px; color: #8b949e;"></div>
             </div>
             <div id="callContent">
                 <div class="call-status-text">
@@ -290,6 +313,7 @@
         </div>
     </div>
 </div>
+<div id="debugInfo" class="debug-info"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
@@ -298,12 +322,22 @@
     let peerConnection = null;
     let localStream = null;
     let currentCall = null;
-    let pendingCall = null;
 
     const authContainer = document.getElementById('authContainer');
     const appContainer = document.getElementById('appContainer');
     const registerBtn = document.getElementById('registerBtn');
     const contactsList = document.getElementById('contactsList');
+    const debugInfo = document.getElementById('debugInfo');
+
+    function debugLog(message) {
+        console.log(message);
+        debugInfo.innerHTML = message;
+        setTimeout(() => {
+            if (debugInfo.innerHTML === message) {
+                debugInfo.innerHTML = '';
+            }
+        }, 3000);
+    }
 
     registerBtn.addEventListener('click', async () => {
         const username = document.getElementById('regUsername').value.trim();
@@ -313,16 +347,23 @@
             return;
         }
         currentUser = { username, userId };
+        
         const response = await fetch('/api/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, userId })
         });
+        
         if (response.ok) {
-            socket = io();
+            socket = io({
+                transports: ['websocket', 'polling']
+            });
+            
             socket.on('connect', () => {
+                debugLog('✅ WebSocket подключен');
                 socket.emit('register', { username, userId });
             });
+            
             setupSocketListeners();
             authContainer.classList.add('hidden');
             appContainer.classList.remove('hidden');
@@ -335,58 +376,87 @@
         socket.on('user-list', (users) => {
             renderContacts(users.filter(u => u.userId !== currentUser.userId));
         });
+        
         socket.on('incoming-call', (data) => {
+            debugLog(`📞 Входящий звонок от ${data.fromName}`);
             showIncomingCall(data);
         });
+        
         socket.on('call-accepted', async (data) => {
+            debugLog(`✅ Звонок принят ${data.targetName}`);
             document.getElementById('callStatusText').innerHTML = 'Соединение устанавливается...';
             await startCall(data.targetId, currentCall?.callType);
         });
+        
         socket.on('call-rejected', () => {
+            debugLog('❌ Звонок отклонён');
             endCall();
             showNotification('Звонок отклонён');
         });
+        
+        socket.on('call-error', (data) => {
+            debugLog(`❌ Ошибка: ${data.message}`);
+            endCall();
+            showNotification(data.message);
+        });
+        
         socket.on('call-ended', () => {
+            debugLog('📴 Звонок завершён');
             endCall();
             showNotification('Звонок завершён');
         });
+        
         socket.on('offer', async (data) => {
+            debugLog(`📡 Получен offer от ${data.from}`);
             await handleOffer(data);
         });
+        
         socket.on('answer', async (data) => {
+            debugLog(`📡 Получен answer от ${data.from}`);
             await handleAnswer(data);
         });
+        
         socket.on('ice-candidate', async (data) => {
+            debugLog(`❄️ Получен ICE кандидат от ${data.from}`);
             if (peerConnection) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                try {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                } catch (e) {
+                    console.error('ICE candidate error:', e);
+                }
             }
         });
     }
 
     async function startCall(targetId, callType) {
         try {
-            // Получаем локальный поток
+            debugLog(`🎥 Начинаем звонок, тип: ${callType}`);
+            
             localStream = await navigator.mediaDevices.getUserMedia({
                 video: callType === 'video',
                 audio: true
             });
             
-            // Создаем PeerConnection
-            peerConnection = new RTCPeerConnection({
+            debugLog('✅ Локальный поток получен');
+            
+            const configuration = {
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' }
                 ]
-            });
+            };
             
-            // Добавляем все треки в соединение
+            peerConnection = new RTCPeerConnection(configuration);
+            
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
+                debugLog(`➕ Добавлен трек: ${track.kind}`);
             });
             
-            // Обработка ICE кандидатов
             peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
+                    debugLog(`❄️ Отправляем ICE кандидат`);
                     socket.emit('ice-candidate', {
                         targetId: targetId,
                         candidate: event.candidate
@@ -394,8 +464,18 @@
                 }
             };
             
-            // Получаем удаленный поток
+            peerConnection.oniceconnectionstatechange = () => {
+                debugLog(`🔌 ICE состояние: ${peerConnection.iceConnectionState}`);
+                if (peerConnection.iceConnectionState === 'connected') {
+                    document.getElementById('callStatusText').innerHTML = 'Соединение установлено!';
+                } else if (peerConnection.iceConnectionState === 'failed') {
+                    debugLog('❌ ICE соединение не удалось');
+                    showNotification('Не удалось установить соединение');
+                }
+            };
+            
             peerConnection.ontrack = (event) => {
+                debugLog(`📺 Получен удалённый трек: ${event.track.kind}`);
                 const remoteVideo = document.getElementById('remoteVideo');
                 if (remoteVideo && event.streams[0]) {
                     remoteVideo.srcObject = event.streams[0];
@@ -403,9 +483,9 @@
                 }
             };
             
-            // Создаем и отправляем offer
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
+            debugLog('📡 Отправляем offer');
             
             socket.emit('offer', {
                 targetId: targetId,
@@ -415,7 +495,8 @@
             showCallUI(callType);
             
         } catch (error) {
-            console.error('Error starting call:', error);
+            debugLog(`❌ Ошибка: ${error.message}`);
+            console.error(error);
             alert('Не удалось начать звонок. Проверьте микрофон и камеру.');
             endCall();
         }
@@ -423,24 +504,29 @@
 
     async function handleOffer(data) {
         try {
+            debugLog(`📡 Обработка offer от ${data.from}`);
+            
+            const configuration = {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' }
+                ]
+            };
+            
             if (!peerConnection) {
-                // Создаем PeerConnection для ответа
-                peerConnection = new RTCPeerConnection({
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' }
-                    ]
-                });
+                peerConnection = new RTCPeerConnection(configuration);
                 
-                // Добавляем локальный поток если есть
                 if (localStream) {
                     localStream.getTracks().forEach(track => {
                         peerConnection.addTrack(track, localStream);
+                        debugLog(`➕ Добавлен трек: ${track.kind}`);
                     });
                 }
                 
                 peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
+                        debugLog(`❄️ Отправляем ICE кандидат`);
                         socket.emit('ice-candidate', {
                             targetId: data.from,
                             candidate: event.candidate
@@ -448,7 +534,12 @@
                     }
                 };
                 
+                peerConnection.oniceconnectionstatechange = () => {
+                    debugLog(`🔌 ICE состояние: ${peerConnection.iceConnectionState}`);
+                };
+                
                 peerConnection.ontrack = (event) => {
+                    debugLog(`📺 Получен удалённый трек: ${event.track.kind}`);
                     const remoteVideo = document.getElementById('remoteVideo');
                     if (remoteVideo && event.streams[0]) {
                         remoteVideo.srcObject = event.streams[0];
@@ -460,6 +551,7 @@
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
+            debugLog('📡 Отправляем answer');
             
             socket.emit('answer', {
                 targetId: data.from,
@@ -467,27 +559,31 @@
             });
             
         } catch (error) {
-            console.error('Error handling offer:', error);
+            debugLog(`❌ Ошибка обработки offer: ${error.message}`);
+            console.error(error);
         }
     }
 
     async function handleAnswer(data) {
         if (peerConnection) {
+            debugLog(`📡 Устанавливаем remote description из answer`);
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
         }
     }
 
     async function makeCall(targetId, callType) {
         if (currentCall) {
-            alert('Уже есть активный звонок');
+            showNotification('Уже есть активный звонок');
             return;
         }
+        
         currentCall = { targetId, callType };
         document.getElementById('callWithName').textContent = `Звонок...`;
+        document.getElementById('callStatusText').innerHTML = 'Ожидание ответа...';
         
+        debugLog(`📞 Звоним ${targetId}, тип: ${callType}`);
         socket.emit('call-user', { targetId, callType });
         
-        // Показываем ожидание
         const callContent = document.getElementById('callContent');
         callContent.innerHTML = `
             <div class="call-status-text">
@@ -495,9 +591,10 @@
                 <div>Ожидание ответа...</div>
             </div>
             <div class="call-controls">
-                <button class="control-btn end-call" id="endCallBtn">📞</button>
+                <button class="control-btn end-call" id="endCallBtn">📞 Отменить</button>
             </div>
         `;
+        
         document.getElementById('endCallBtn').onclick = () => {
             endCall();
             socket.emit('end-call', { targetId });
@@ -506,6 +603,7 @@
 
     function showCallUI(callType) {
         const callContent = document.getElementById('callContent');
+        
         if (callType === 'video') {
             callContent.innerHTML = `
                 <div class="video-container" id="videoContainer">
@@ -513,29 +611,34 @@
                     <video id="localVideo" class="local-video" autoplay playsinline muted></video>
                 </div>
                 <div class="call-controls">
-                    <button class="control-btn" id="toggleMuteBtn" style="background: #2ea6ff;">🎤</button>
-                    <button class="control-btn" id="toggleVideoBtn" style="background: #2ea6ff;">📹</button>
+                    <button class="control-btn toggle" id="toggleMuteBtn">🎤</button>
+                    <button class="control-btn toggle" id="toggleVideoBtn">📹</button>
                     <button class="control-btn end-call" id="endCallBtn">📞</button>
                 </div>
             `;
+            
             if (localStream) {
                 document.getElementById('localVideo').srcObject = localStream;
             }
             
             let muted = false;
             let videoOff = false;
+            
             document.getElementById('toggleMuteBtn').onclick = () => {
                 if (localStream) {
                     muted = !muted;
                     localStream.getAudioTracks().forEach(t => t.enabled = !muted);
                     document.getElementById('toggleMuteBtn').style.opacity = muted ? '0.5' : '1';
+                    document.getElementById('toggleMuteBtn').style.background = muted ? '#666' : '#2ea6ff';
                 }
             };
+            
             document.getElementById('toggleVideoBtn').onclick = () => {
                 if (localStream) {
                     videoOff = !videoOff;
                     localStream.getVideoTracks().forEach(t => t.enabled = !videoOff);
                     document.getElementById('toggleVideoBtn').style.opacity = videoOff ? '0.5' : '1';
+                    document.getElementById('toggleVideoBtn').style.background = videoOff ? '#666' : '#2ea6ff';
                 }
             };
         } else {
@@ -545,16 +648,18 @@
                     <div>Аудиозвонок в процессе...</div>
                 </div>
                 <div class="call-controls">
-                    <button class="control-btn" id="toggleMuteBtn" style="background: #2ea6ff;">🎤</button>
+                    <button class="control-btn toggle" id="toggleMuteBtn">🎤</button>
                     <button class="control-btn end-call" id="endCallBtn">📞</button>
                 </div>
             `;
+            
             let muted = false;
             document.getElementById('toggleMuteBtn').onclick = () => {
                 if (localStream) {
                     muted = !muted;
                     localStream.getAudioTracks().forEach(t => t.enabled = !muted);
                     document.getElementById('toggleMuteBtn').style.opacity = muted ? '0.5' : '1';
+                    document.getElementById('toggleMuteBtn').style.background = muted ? '#666' : '#2ea6ff';
                 }
             };
         }
@@ -568,10 +673,8 @@
     }
 
     function showIncomingCall(data) {
-        pendingCall = data;
         const notification = document.createElement('div');
         notification.className = 'incoming-call';
-        notification.id = 'incomingCall';
         notification.innerHTML = `
             <div style="display: flex; align-items: center; gap: 15px;">
                 <div class="contact-avatar" style="width: 50px; height: 50px;">${data.fromName[0].toUpperCase()}</div>
@@ -589,12 +692,17 @@
             notification.remove();
             currentCall = { targetId: data.from, callType: data.callType };
             document.getElementById('callWithName').textContent = `Разговор с ${data.fromName}`;
+            document.getElementById('callStatusText').innerHTML = 'Соединение...';
+            
+            debugLog(`✅ Принимаем звонок от ${data.fromName}`);
             
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({
                     video: data.callType === 'video',
                     audio: true
                 });
+                debugLog('✅ Локальный поток получен для ответа');
+                
                 socket.emit('accept-call', { fromId: data.from });
                 
                 if (data.callType === 'video') {
@@ -603,7 +711,7 @@
                     showCallUI('audio');
                 }
             } catch (error) {
-                console.error(error);
+                debugLog(`❌ Ошибка: ${error.message}`);
                 alert('Не удалось получить доступ к камере/микрофону');
                 endCall();
             }
@@ -611,11 +719,14 @@
         
         document.getElementById('rejectCallBtn').onclick = () => {
             notification.remove();
+            debugLog(`❌ Отклоняем звонок от ${data.fromName}`);
             socket.emit('reject-call', { fromId: data.from });
         };
     }
 
     function endCall() {
+        debugLog('📴 Завершаем звонок');
+        
         if (peerConnection) {
             peerConnection.close();
             peerConnection = null;
@@ -627,6 +738,8 @@
         currentCall = null;
         
         document.getElementById('callWithName').textContent = 'Готов к звонкам';
+        document.getElementById('callStatusText').innerHTML = '';
+        
         const callContent = document.getElementById('callContent');
         callContent.innerHTML = `
             <div class="call-status-text">
@@ -641,12 +754,13 @@
             contactsList.innerHTML = '<div style="padding: 20px; text-align: center; color: #8b949e;">Нет пользователей онлайн</div>';
             return;
         }
+        
         contactsList.innerHTML = users.map(user => `
             <div class="contact-item">
                 <div class="contact-avatar">${user.username[0].toUpperCase()}</div>
                 <div class="contact-info">
                     <div class="contact-name">${user.username}</div>
-                    <div style="font-size: 12px; color: #2ea6ff;">● Онлайн</div>
+                    <div class="contact-status">● Онлайн</div>
                 </div>
                 <div class="call-buttons">
                     <button class="call-icon" onclick="makeCall('${user.userId}', 'audio')">🎙️</button>
