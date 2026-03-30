@@ -389,6 +389,12 @@
             .groups-list.open {
                 transform: translateX(0);
             }
+
+            .call-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 20px;
+            }
         }
 
         .hidden {
@@ -556,6 +562,12 @@
             socket.on('admitted-to-group', (data) => {
                 showNotification(`Вас пустили в группу "${data.groupName}"`);
             });
+            // Обработка удаления контакта после отклонения звонка (сервер должен обработать)
+            socket.on('contact-removed', (data) => {
+                showNotification(`Контакт ${data.username} удалён из списка`, false);
+                // Обновляем список контактов
+                socket.emit('get-users');
+            });
         }
 
         // Рендер контактов
@@ -565,7 +577,7 @@
                 return;
             }
             contactsList.innerHTML = users.map(u => `
-                <div class="contact-item">
+                <div class="contact-item" data-user-id="${u.userId}">
                     <div class="contact-avatar">${escapeHtml(u.username[0].toUpperCase())}</div>
                     <div class="contact-info">
                         <div class="contact-name">${escapeHtml(u.username)}</div>
