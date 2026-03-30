@@ -18,13 +18,68 @@
             color: #fff;
             height: 100vh;
             overflow: hidden;
+            position: relative;
         }
 
-        /* Контейнер звонка */
+        /* Основной контейнер звонка (полноэкранный) */
         .call-container {
             display: flex;
             flex-direction: column;
             height: 100vh;
+            transition: opacity 0.2s;
+            background: #0a0a0a;
+        }
+
+        /* Свёрнутый режим (плавающее окно) */
+        .floating-window {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            background: #1a1a2e;
+            border-radius: 20px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            cursor: move;
+            overflow: hidden;
+            border: 1px solid #2ea6ff;
+            transition: all 0.2s;
+        }
+
+        .floating-video {
+            width: 100%;
+            height: auto;
+            background: #000;
+        }
+
+        .floating-controls {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        .floating-controls button {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .floating-controls button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .hidden {
+            display: none !important;
         }
 
         /* Шапка */
@@ -64,6 +119,22 @@
             border-radius: 20px;
         }
 
+        .header-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .header-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
         /* Видео-область */
         .video-container {
             flex: 1;
@@ -79,7 +150,6 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: all 0.2s;
         }
 
         .local-video {
@@ -136,7 +206,7 @@
             background: #4a4a6a;
         }
 
-        /* Дополнительные кнопки (демонстрация экрана и т.д.) */
+        /* Дополнительные кнопки */
         .extra-controls {
             display: flex;
             justify-content: center;
@@ -233,52 +303,7 @@
             font-size: 18px;
         }
 
-        /* Уведомления */
-        .notification {
-            position: fixed;
-            top: 80px;
-            left: 20px;
-            right: 20px;
-            background: #1a1a2e;
-            border-left: 4px solid #2ea6ff;
-            border-radius: 12px;
-            padding: 12px 16px;
-            text-align: center;
-            font-size: 14px;
-            z-index: 1000;
-            animation: slideDown 0.3s ease;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-
-        @keyframes slideDown {
-            from {
-                transform: translateY(-100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-
-        /* Кнопка полного экрана */
-        .fullscreen-btn {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            background: rgba(0, 0, 0, 0.6);
-            border: none;
-            color: white;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            font-size: 20px;
-            cursor: pointer;
-            z-index: 20;
-            backdrop-filter: blur(4px);
-        }
-
-        /* Список участников для групповых звонков (мобильная навигация) */
+        /* Панель участников */
         .participants-panel {
             position: fixed;
             bottom: 100px;
@@ -330,7 +355,52 @@
             font-size: 16px;
         }
 
-        /* Мобильная адаптация */
+        /* Уведомления */
+        .notification {
+            position: fixed;
+            top: 80px;
+            left: 20px;
+            right: 20px;
+            background: #1a1a2e;
+            border-left: 4px solid #2ea6ff;
+            border-radius: 12px;
+            padding: 12px 16px;
+            text-align: center;
+            font-size: 14px;
+            z-index: 1000;
+            animation: slideDown 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Кнопка полного экрана */
+        .fullscreen-btn {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(0, 0, 0, 0.6);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 20;
+            backdrop-filter: blur(4px);
+        }
+
+        /* Адаптация для мобильных */
         @media (max-width: 768px) {
             .local-video {
                 width: 120px;
@@ -365,6 +435,12 @@
             .call-timer {
                 font-size: 16px;
             }
+
+            .floating-window {
+                width: 260px;
+                bottom: 10px;
+                right: 10px;
+            }
         }
 
         @media (max-width: 480px) {
@@ -388,10 +464,6 @@
             }
         }
 
-        .hidden {
-            display: none;
-        }
-
         .debug-info {
             position: fixed;
             bottom: 4px;
@@ -407,13 +479,17 @@
     </style>
 </head>
 <body>
-<div class="call-container">
+<div id="callContainer" class="call-container">
     <div class="call-header">
         <div class="call-info">
             <div class="call-name" id="callName">Соединение...</div>
             <div class="call-status" id="callStatus">Устанавливается</div>
         </div>
-        <div class="call-timer" id="callTimer">00:00</div>
+        <div class="header-buttons">
+            <button class="header-btn" id="minimizeBtn" title="Свернуть">🗗</button>
+            <button class="header-btn" id="fullscreenHeaderBtn" title="Полный экран">⤢</button>
+            <div class="call-timer" id="callTimer">00:00</div>
+        </div>
     </div>
 
     <div class="video-container" id="videoContainer">
@@ -438,6 +514,14 @@
     </div>
 </div>
 
+<div id="floatingWindow" class="floating-window hidden">
+    <video id="floatingVideo" class="floating-video" autoplay playsinline muted></video>
+    <div class="floating-controls">
+        <button id="expandBtn" title="Развернуть">🗖</button>
+        <button id="endFloatingCallBtn" title="Завершить звонок">📞</button>
+    </div>
+</div>
+
 <div id="chatPanel" class="chat-panel">
     <div class="chat-messages" id="chatMessages"></div>
     <div class="chat-input">
@@ -459,7 +543,7 @@
     let socket = null;
     let currentUser = null;
     let callData = null;
-    let peerConnection = null;          // для личного звонка
+    let peerConnection = null;
     let localStream = null;
     let screenShareStream = null;
     let isScreenSharing = false;
@@ -467,13 +551,19 @@
     let callStartTime = 0;
     let isInGroup = false;
     let groupId = null;
-    let groupPeerConnections = new Map(); // userId -> RTCPeerConnection
-    let groupParticipants = new Map();    // userId -> { username, avatar }
+    let groupPeerConnections = new Map();
+    let groupParticipants = new Map();
     let waitingParticipants = [];
     let isHost = false;
     let isRecording = false;
     let mediaRecorder = null;
     let recordedChunks = [];
+
+    // Свёрнутый режим
+    let isMinimized = false;
+    let floatingWindow = document.getElementById('floatingWindow');
+    let callContainer = document.getElementById('callContainer');
+    let floatingVideo = document.getElementById('floatingVideo');
 
     // DOM элементы
     const callNameEl = document.getElementById('callName');
@@ -497,6 +587,10 @@
     const sendChatBtn = document.getElementById('sendChatBtn');
     const participantsListDiv = document.getElementById('participantsList');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const fullscreenHeaderBtn = document.getElementById('fullscreenHeaderBtn');
+    const minimizeBtn = document.getElementById('minimizeBtn');
+    const expandBtn = document.getElementById('expandBtn');
+    const endFloatingCallBtn = document.getElementById('endFloatingCallBtn');
     const debugInfo = document.getElementById('debugInfo');
 
     // Вспомогательные функции
@@ -521,6 +615,73 @@
         if (!str) return '';
         return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
     }
+
+    // ========== СВЁРТЫВАНИЕ / РАЗВЁРТЫВАНИЕ ==========
+    function minimizeCall() {
+        if (isMinimized) return;
+        isMinimized = true;
+        // Копируем видеопоток в плавающее окно
+        if (remoteVideo.srcObject) {
+            floatingVideo.srcObject = remoteVideo.srcObject;
+        } else if (localStream && !remoteVideo.srcObject) {
+            // Если нет удалённого видео, показываем локальное
+            floatingVideo.srcObject = localStream;
+        }
+        callContainer.classList.add('hidden');
+        floatingWindow.classList.remove('hidden');
+        // Сохраняем состояние звонка в localStorage, чтобы после развёртывания всё восстановилось
+        localStorage.setItem('minimizedCall', 'true');
+    }
+
+    function expandCall() {
+        if (!isMinimized) return;
+        isMinimized = false;
+        // Восстанавливаем видео
+        if (floatingVideo.srcObject) {
+            remoteVideo.srcObject = floatingVideo.srcObject;
+            floatingVideo.srcObject = null;
+        }
+        floatingWindow.classList.add('hidden');
+        callContainer.classList.remove('hidden');
+        localStorage.removeItem('minimizedCall');
+    }
+
+    // Перетаскивание плавающего окна
+    let isDragging = false;
+    let dragOffsetX = 0, dragOffsetY = 0;
+    floatingWindow.addEventListener('mousedown', (e) => {
+        if (e.target === floatingWindow || e.target.closest('.floating-controls')) {
+            isDragging = true;
+            const rect = floatingWindow.getBoundingClientRect();
+            dragOffsetX = e.clientX - rect.left;
+            dragOffsetY = e.clientY - rect.top;
+            floatingWindow.style.cursor = 'grabbing';
+        }
+    });
+    window.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+            let left = e.clientX - dragOffsetX;
+            let top = e.clientY - dragOffsetY;
+            left = Math.max(0, Math.min(window.innerWidth - floatingWindow.offsetWidth, left));
+            top = Math.max(0, Math.min(window.innerHeight - floatingWindow.offsetHeight, top));
+            floatingWindow.style.left = left + 'px';
+            floatingWindow.style.top = top + 'px';
+            floatingWindow.style.right = 'auto';
+            floatingWindow.style.bottom = 'auto';
+        }
+    });
+    window.addEventListener('mouseup', () => {
+        if (isDragging) {
+            isDragging = false;
+            floatingWindow.style.cursor = 'move';
+        }
+    });
+
+    minimizeBtn.onclick = minimizeCall;
+    expandBtn.onclick = expandCall;
+    endFloatingCallBtn.onclick = () => {
+        endCall();
+    };
 
     // ========== ЗАГРУЗКА ДАННЫХ ЗВОНКА ==========
     function loadCallData() {
@@ -556,12 +717,16 @@
             socket.emit('register', { username: currentUser.username, userId: currentUser.userId });
         });
         setupSocketListeners();
+
+        // Проверка, был ли свёрнут звонок (при перезагрузке)
+        if (localStorage.getItem('minimizedCall') === 'true') {
+            setTimeout(() => minimizeCall(), 500);
+        }
     }
 
     // ========== НАСТРОЙКА СОКЕТОВ ==========
     function setupSocketListeners() {
         if (callData.type === 'personal') {
-            // Личный звонок
             if (callData.isIncoming) {
                 socket.emit('accept-call', { fromId: callData.targetId });
                 startPersonalCall(true);
@@ -570,7 +735,6 @@
             }
             socket.on('call-rejected', () => {
                 showNotification('Звонок отклонён', true);
-                // Уведомляем сервер об удалении контакта (сервер должен удалить из списка контактов)
                 socket.emit('remove-contact', { userId: callData.targetId });
                 window.close();
             });
@@ -590,7 +754,6 @@
                 }
             });
         } else {
-            // Групповой звонок
             socket.on('admitted-to-group', async (data) => {
                 showNotification(`Вас пустили в группу "${data.groupName}"`);
                 await joinGroupCall();
@@ -601,7 +764,6 @@
             });
             socket.on('group-participants-update', (data) => {
                 updateParticipantsList(data.participants);
-                // Для каждого нового участника нужно установить соединение
                 for (const p of data.participants) {
                     if (p.userId !== currentUser.userId && !groupPeerConnections.has(p.userId)) {
                         createGroupPeerConnection(p.userId);
@@ -638,7 +800,6 @@
                 video: callData.callType === 'video',
                 audio: true
             };
-            // Улучшаем качество видео
             if (constraints.video) {
                 constraints.video = {
                     width: { ideal: 1280 },
@@ -659,7 +820,6 @@
                 rtcpMuxPolicy: 'require'
             };
             peerConnection = new RTCPeerConnection(config);
-            // Добавляем треки с высоким качеством
             localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, localStream);
             });
@@ -737,7 +897,7 @@
         }
     }
 
-    // ========== ГРУППОВОЙ ЗВОНОК (mesh) ==========
+    // ========== ГРУППОВОЙ ЗВОНОК ==========
     async function joinGroupCall() {
         try {
             const constraints = {
@@ -748,8 +908,6 @@
             localVideo.srcObject = localStream;
             startTimer();
             callStatusEl.textContent = 'В конференции';
-            // После того как получим список участников, установим соединения со всеми
-            // Сервер пришлёт group-participants-update
         } catch (err) {
             showNotification('Ошибка доступа к медиа', true);
             window.close();
@@ -781,7 +939,6 @@
             }
         };
         groupPeerConnections.set(targetUserId, pc);
-        // Отправляем offer
         const offer = await pc.createOffer({
             offerToReceiveAudio: true,
             offerToReceiveVideo: true
@@ -874,14 +1031,12 @@
         for (const p of participants) {
             groupParticipants.set(p.userId, p);
         }
-        // Обновляем UI
         participantsListDiv.innerHTML = Array.from(groupParticipants.values()).map(p => `
             <div class="participant-item">
                 <div class="participant-avatar">${escapeHtml(p.username[0].toUpperCase())}</div>
                 <div>${escapeHtml(p.username)}</div>
             </div>
         `).join('');
-        // Для каждого участника устанавливаем соединение, если его нет
         for (const [userId, p] of groupParticipants.entries()) {
             if (userId !== currentUser.userId && !groupPeerConnections.has(userId)) {
                 createGroupPeerConnection(userId);
@@ -922,7 +1077,6 @@
             localStream.removeTrack(oldVideoTrack);
             localStream.addTrack(newVideoTrack);
             oldVideoTrack.stop();
-            // Обновляем трек во всех соединениях
             if (callData.type === 'personal' && peerConnection) {
                 const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
                 if (sender) sender.replaceTrack(newVideoTrack);
@@ -949,7 +1103,7 @@
         window.close();
     };
 
-    // РАБОЧАЯ ДЕМОНСТРАЦИЯ ЭКРАНА
+    // Демонстрация экрана
     screenShareBtn.onclick = async () => {
         if (isScreenSharing) {
             stopScreenShare();
@@ -965,7 +1119,6 @@
             localStream.removeTrack(oldVideoTrack);
             localStream.addTrack(videoTrack);
             localVideo.srcObject = localStream;
-            // Заменяем трек во всех соединениях
             if (callData.type === 'personal' && peerConnection) {
                 const sender = peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
                 if (sender) sender.replaceTrack(videoTrack);
@@ -990,7 +1143,6 @@
             screenShareStream.getTracks().forEach(track => track.stop());
             screenShareStream = null;
         }
-        // Восстанавливаем камеру
         navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true })
             .then(stream => {
                 const newVideoTrack = stream.getVideoTracks()[0];
@@ -1022,7 +1174,7 @@
         }
     };
 
-    // Запись с MediaRecorder (реальная)
+    // Запись
     recordBtn.onclick = async () => {
         if (!isRecording) {
             if (!localStream) return;
@@ -1097,17 +1249,17 @@
     }
 
     // Полноэкранный режим
-    fullscreenBtn.onclick = () => {
+    function toggleFullscreen() {
         if (!document.fullscreenElement) {
-            remoteVideo.requestFullscreen().catch(err => {
-                console.error('Fullscreen error', err);
-            });
+            document.documentElement.requestFullscreen();
         } else {
             document.exitFullscreen();
         }
-    };
+    }
+    fullscreenBtn.onclick = toggleFullscreen;
+    fullscreenHeaderBtn.onclick = toggleFullscreen;
 
-    // Обработка закрытия окна (чтобы освободить ресурсы)
+    // Обработка закрытия окна
     window.addEventListener('beforeunload', () => {
         if (peerConnection) peerConnection.close();
         if (localStream) localStream.getTracks().forEach(t => t.stop());
