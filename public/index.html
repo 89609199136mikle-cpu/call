@@ -393,15 +393,14 @@
     // ========== Глобальные переменные ==========
     let socket = null;
     let currentUser = null;
-    let callState = 'idle'; // idle, calling
-    let groupsList = [];
+    let callState = 'idle';
 
     // DOM элементы
     const authContainer = document.getElementById('authContainer');
     const appContainer = document.getElementById('appContainer');
     const registerBtn = document.getElementById('registerBtn');
     const contactsList = document.getElementById('contactsList');
-    const groupsListEl = document.getElementById('groupsList');
+    const groupsList = document.getElementById('groupsList');
     const menuBtn = document.getElementById('menuBtn');
     const contactsOverlay = document.getElementById('contactsOverlay');
     const tabBtns = document.querySelectorAll('.tab');
@@ -479,12 +478,11 @@
             renderContacts(users.filter(u => u.userId !== currentUser.id));
         });
         socket.on('group-list', (groups) => {
-            groupsList = groups;
             renderGroups(groups);
         });
         socket.on('incoming-call', (data) => {
             if (callState !== 'idle') {
-                socket.emit('reject-call', { fromId: data.from });
+                socket.emit('call:reject', { fromId: data.from });
                 return;
             }
             showNotification(`Входящий звонок от ${data.fromName}`, false);
@@ -493,7 +491,9 @@
                 targetId: data.from,
                 targetName: data.fromName,
                 isVideo: data.callType === 'video',
-                isIncoming: true
+                isIncoming: true,
+                myUserId: currentUser.id,
+                myUsername: currentUser.name
             }));
             window.open('/call.html', '_blank');
         });
@@ -545,7 +545,9 @@
             targetId: targetId,
             targetName: targetName,
             isVideo: isVideo,
-            isIncoming: false
+            isIncoming: false,
+            myUserId: currentUser.id,
+            myUsername: currentUser.name
         }));
         window.open('/call.html', '_blank');
         socket.emit('call:start', { targetId, callType: isVideo ? 'video' : 'audio' });
@@ -558,10 +560,10 @@
     // Рендер групп
     function renderGroups(groups) {
         if (!groups.length) {
-            groupsListEl.innerHTML = '<div style="padding:20px;text-align:center;color:#8b949e;">Нет активных конференций</div>';
+            groupsList.innerHTML = '<div style="padding:20px;text-align:center;color:#8b949e;">Нет активных конференций</div>';
             return;
         }
-        groupsListEl.innerHTML = groups.map(g => `
+        groupsList.innerHTML = groups.map(g => `
             <div class="group-item">
                 <div class="group-avatar">👥</div>
                 <div class="group-info">
@@ -583,7 +585,9 @@
             type: 'group',
             groupId: groupId,
             groupName: groupName,
-            isIncoming: false
+            isIncoming: false,
+            myUserId: currentUser.id,
+            myUsername: currentUser.name
         }));
         window.open('/call.html', '_blank');
         socket.emit('join-group-request', { groupId });
