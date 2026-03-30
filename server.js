@@ -7,10 +7,7 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+  cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
 app.use(cors());
@@ -18,127 +15,103 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // Хранилище пользователей
-const users = new Map();
-const userSockets = new Map();
+const users = new Map();      // socketId -> { username, userId }
+const userSockets = new Map(); // userId -> socketId
 
 app.post('/api/register', (req, res) => {
   const { username, userId } = req.body;
-  if (!username || !userId) {
-    return res.status(400).json({ error: 'Username and userId required' });
-  }
-  res.json({ success: true, message: 'Registered successfully' });
+  if (!username || !userId) return res.status(400).json({ error: 'Missing fields' });
+  res.json({ success: true });
 });
 
 app.get('/api/users', (req, res) => {
-  const userList = Array.from(userSockets.entries()).map(([userId, socketId]) => ({
-    userId: userId,
-    username: users.get(socketId)?.username || 'Unknown',
+  const list = Array.from(userSockets.entries()).map(([uid, sid]) => ({
+    userId: uid,
+    username: users.get(sid)?.username || 'Unknown',
     online: true
   }));
-  res.json(userList);
+  res.json(list);
 });
 
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
-  
-  socket.on('register', (data) => {
-    const { username, userId } = data;
+  console.log('Client connected:', socket.id);
+
+  socket.on('register', ({ username, userId }) => {
     users.set(socket.id, { username, userId });
     userSockets.set(userId, socket.id);
     socket.userId = userId;
     socket.username = username;
-    
     broadcastUserList();
-    console.log(`User registered: ${username} (${userId})`);
+    console.log(`Registered: ${username} (${userId})`);
   });
-  
-  socket.on('call-user', (data) => {
-    const { targetId, callType } = data;
+
+  socket.on('call-user', ({ targetId, callType }) => {
     const targetSocketId = userSockets.get(targetId);
-    
     if (targetSocketId && io.sockets.sockets.get(targetSocketId)) {
       io.to(targetSocketId).emit('incoming-call', {
         from: socket.userId,
         fromName: socket.username,
-        callType: callType
+        callType
       });
-      console.log(`Call from ${socket.username} to ${targetId}`);
     } else {
-      socket.emit('call-error', { message: 'User is offline' });
+      socket.emit('call-error', { message: 'User offline' });
     }
   });
-  
-  socket.on('accept-call', (data) => {
-    const { fromId } = data;
-    const callerSocketId = userSockets.get(fromId);
-    if (callerSocketId) {
-      io.to(callerSocketId).emit('call-accepted', {
+
+  socket.on('accept-call', ({ fromId }) => {
+    const callerSocket = userSockets.get(fromId);
+    if (callerSocket) {
+      io.to(callerSocket).emit('call-accepted', {
         targetId: socket.userId,
         targetName: socket.username
       });
     }
   });
-  
-  socket.on('reject-call', (data) => {
-    const { fromId } = data;
-    const callerSocketId = userSockets.get(fromId);
-    if (callerSocketId) {
-      io.to(callerSocketId).emit('call-rejected', { message: 'User rejected the call' });
-    }
+
+  socket.on('reject-call', ({ fromId }) => {
+    const callerSocket = userSockets.get(fromId);
+    if (callerSocket) io.to(callerSocket).emit('call-rejected');
   });
-  
-  socket.on('offer', (data) => {
-    const { targetId, offer } = data;
-    const targetSocketId = userSockets.get(targetId);
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('offer', { from: socket.userId, offer });
-    }
+
+  socket.on('offer', ({ targetId, offer }) => {
+    const targetSocket = userSockets.get(targetId);
+    if (targetSocket) io.to(targetSocket).emit('offer', { from: socket.userId, offer });
   });
-  
-  socket.on('answer', (data) => {
-    const { targetId, answer } = data;
-    const targetSocketId = userSockets.get(targetId);
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('answer', { from: socket.userId, answer });
-    }
+
+  socket.on('answer', ({ targetId, answer }) => {
+    const targetSocket = userSockets.get(targetId);
+    if (targetSocket) io.to(targetSocket).emit('answer', { from: socket.userId, answer });
   });
-  
-  socket.on('ice-candidate', (data) => {
-    const { targetId, candidate } = data;
-    const targetSocketId = userSockets.get(targetId);
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('ice-candidate', { from: socket.userId, candidate });
-    }
+
+  socket.on('ice-candidate', ({ targetId, candidate }) => {
+    const targetSocket = userSockets.get(targetId);
+    if (targetSocket) io.to(targetSocket).emit('ice-candidate', { from: socket.userId, candidate });
   });
-  
-  socket.on('end-call', (data) => {
-    const { targetId } = data;
-    const targetSocketId = userSockets.get(targetId);
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('call-ended', { from: socket.userId });
-    }
+
+  socket.on('end-call', ({ targetId }) => {
+    const targetSocket = userSockets.get(targetId);
+    if (targetSocket) io.to(targetSocket).emit('call-ended');
   });
-  
+
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-    if (socket.userId) {
-      userSockets.delete(socket.userId);
+    const user = users.get(socket.id);
+    if (user) {
+      userSockets.delete(user.userId);
       users.delete(socket.id);
       broadcastUserList();
     }
+    console.log('Client disconnected:', socket.id);
   });
 });
 
 function broadcastUserList() {
-  const userList = Array.from(userSockets.entries()).map(([userId, socketId]) => ({
-    userId: userId,
-    username: users.get(socketId)?.username || 'Unknown',
+  const list = Array.from(userSockets.entries()).map(([uid, sid]) => ({
+    userId: uid,
+    username: users.get(sid)?.username || 'Unknown',
     online: true
   }));
-  io.emit('user-list', userList);
+  io.emit('user-list', list);
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-});
+server.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
