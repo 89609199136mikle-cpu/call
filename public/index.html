@@ -345,7 +345,7 @@
     <div class="auth-card">
         <div class="auth-logo">📞</div>
         <h1>Craheapp</h1>
-        <div class="auth-sub">Войдите, чтобы начать общение</div>
+        <div class="auth-sub">Видеозвонки без ограничений</div>
         <input type="text" id="regUsername" class="auth-input" placeholder="Ваше имя" autocomplete="off">
         <input type="text" id="regUserId" class="auth-input" placeholder="Ваш ID" autocomplete="off">
         <button class="auth-btn" id="registerBtn">Войти</button>
@@ -485,12 +485,12 @@
                 socket.emit('call:reject', { fromId: data.from });
                 return;
             }
-            showNotification(`Входящий звонок от ${data.fromName}`, false);
+            showNotification(`Входящий видеозвонок от ${data.fromName}`, false);
             localStorage.setItem('craheapp_call', JSON.stringify({
                 type: 'personal',
                 targetId: data.from,
                 targetName: data.fromName,
-                isVideo: data.callType === 'video',
+                isVideo: true,
                 isIncoming: true,
                 myUserId: currentUser.id,
                 myUsername: currentUser.name
@@ -512,7 +512,7 @@
         });
     }
 
-    // Рендер контактов
+    // Рендер контактов (только видеозвонки)
     function renderContacts(users) {
         if (!users.length) {
             contactsList.innerHTML = '<div style="padding:20px;text-align:center;color:#8b949e;">Нет пользователей онлайн</div>';
@@ -526,15 +526,14 @@
                     <div class="contact-status">● Онлайн</div>
                 </div>
                 <div class="call-buttons">
-                    <button class="call-icon" onclick="startPersonalCall('${u.userId}', '${escapeHtml(u.username)}', false)">🎙️</button>
-                    <button class="call-icon" onclick="startPersonalCall('${u.userId}', '${escapeHtml(u.username)}', true)">📹</button>
+                    <button class="call-icon" onclick="startVideoCall('${u.userId}', '${escapeHtml(u.username)}')">📹</button>
                 </div>
             </div>
         `).join('');
     }
 
-    // Начать личный звонок
-    window.startPersonalCall = (targetId, targetName, isVideo) => {
+    // Начать видеозвонок
+    window.startVideoCall = (targetId, targetName) => {
         if (callState !== 'idle') {
             showNotification('Уже есть активный звонок', true);
             return;
@@ -544,13 +543,13 @@
             type: 'personal',
             targetId: targetId,
             targetName: targetName,
-            isVideo: isVideo,
+            isVideo: true,
             isIncoming: false,
             myUserId: currentUser.id,
             myUsername: currentUser.name
         }));
         window.open('/call.html', '_blank');
-        socket.emit('call:start', { targetId, callType: isVideo ? 'video' : 'audio' });
+        socket.emit('call:start', { targetId, callType: 'video' });
         // Сброс состояния через таймаут (на случай если окно закрылось)
         setTimeout(() => {
             if (callState === 'calling') callState = 'idle';
