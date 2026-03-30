@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>TelegramCall MAX – Бесплатные звонки</title>
+    <title>Craheapp Messenger</title>
     <style>
         * {
             margin: 0;
@@ -14,7 +14,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: #0f0f1a;
+            background: #0f0f18;
             color: #e6edf3;
             height: 100vh;
             overflow: hidden;
@@ -24,30 +24,28 @@
         .auth-container {
             position: fixed;
             inset: 0;
-            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
+            background: linear-gradient(135deg, #0f0f18 0%, #1a1a2e 100%);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 1000;
             padding: 20px;
         }
-
         .auth-card {
-            background: rgba(30, 30, 46, 0.95);
+            background: rgba(26, 26, 46, 0.95);
             backdrop-filter: blur(12px);
             border-radius: 32px;
             padding: 32px 24px;
             width: 100%;
             max-width: 380px;
             text-align: center;
-            border: 1px solid rgba(46, 166, 255, 0.3);
+            border: 1px solid rgba(122, 92, 255, 0.3);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
         }
-
         .auth-logo {
             width: 64px;
             height: 64px;
-            background: linear-gradient(135deg, #2ea6ff, #0088cc);
+            background: linear-gradient(135deg, #7a5cff, #ff5ad6);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -55,27 +53,24 @@
             font-size: 32px;
             margin: 0 auto 20px;
         }
-
         .auth-card h1 {
             font-size: 28px;
-            background: linear-gradient(135deg, #2ea6ff, #0088cc);
+            background: linear-gradient(135deg, #7a5cff, #ff5ad6);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
             margin-bottom: 8px;
         }
-
         .auth-sub {
             color: #8b949e;
             margin-bottom: 24px;
             font-size: 14px;
         }
-
         .auth-input {
             width: 100%;
             padding: 14px 16px;
             background: #1a1a2e;
-            border: 1px solid #2ea6ff;
+            border: 1px solid #7a5cff;
             border-radius: 16px;
             color: white;
             font-size: 16px;
@@ -83,16 +78,14 @@
             outline: none;
             transition: 0.2s;
         }
-
         .auth-input:focus {
-            border-color: #0088cc;
-            box-shadow: 0 0 0 2px rgba(46, 166, 255, 0.2);
+            border-color: #ff5ad6;
+            box-shadow: 0 0 0 2px rgba(122, 92, 255, 0.2);
         }
-
         .auth-btn {
             width: 100%;
             padding: 14px;
-            background: linear-gradient(135deg, #2ea6ff, #0088cc);
+            background: linear-gradient(135deg, #7a5cff, #ff5ad6);
             border: none;
             border-radius: 16px;
             color: white;
@@ -101,10 +94,7 @@
             cursor: pointer;
             transition: transform 0.1s;
         }
-
-        .auth-btn:active {
-            transform: scale(0.98);
-        }
+        .auth-btn:active { transform: scale(0.98); }
 
         /* ========== ОСНОВНОЙ ИНТЕРФЕЙС ========== */
         .app-container {
@@ -112,19 +102,17 @@
             flex-direction: column;
             height: 100vh;
             width: 100%;
-            background: #0f0f1a;
+            background: #0f0f18;
         }
-
         .telegram-header {
             background: #1a1a2e;
             padding: 12px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid #2ea6ff;
+            border-bottom: 1px solid #7a5cff;
             flex-shrink: 0;
         }
-
         .logo {
             display: flex;
             align-items: center;
@@ -132,27 +120,24 @@
             font-weight: 600;
             font-size: 18px;
         }
-
         .logo-icon {
             width: 32px;
             height: 32px;
-            background: linear-gradient(135deg, #2ea6ff, #0088cc);
+            background: linear-gradient(135deg, #7a5cff, #ff5ad6);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-
         .user-info {
             display: flex;
             align-items: center;
             gap: 12px;
         }
-
         .avatar {
             width: 40px;
             height: 40px;
-            background: linear-gradient(135deg, #2ea6ff, #0088cc);
+            background: linear-gradient(135deg, #7a5cff, #ff5ad6);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -160,10 +145,9 @@
             font-weight: 600;
             font-size: 18px;
         }
-
         .mobile-menu-btn {
             display: none;
-            background: #2ea6ff;
+            background: #7a5cff;
             border: none;
             width: 36px;
             height: 36px;
@@ -177,10 +161,9 @@
         .tabs {
             display: flex;
             background: #1a1a2e;
-            border-bottom: 1px solid #2ea6ff;
+            border-bottom: 1px solid #7a5cff;
             flex-shrink: 0;
         }
-
         .tab {
             flex: 1;
             text-align: center;
@@ -190,47 +173,38 @@
             transition: 0.2s;
             color: #8b949e;
         }
-
         .tab.active {
-            color: #2ea6ff;
-            border-bottom: 2px solid #2ea6ff;
+            color: #ff5ad6;
+            border-bottom: 2px solid #ff5ad6;
         }
-
         .tab-content {
             display: none;
             flex: 1;
             overflow: hidden;
             flex-direction: column;
         }
-
         .tab-content.active {
             display: flex;
         }
 
         /* Контакты */
-        .contacts-sidebar,
-        .groups-container {
+        .contacts-sidebar, .groups-container {
             flex: 1;
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
-
         .contacts-header {
             padding: 16px;
-            border-bottom: 1px solid #2ea6ff;
+            border-bottom: 1px solid #7a5cff;
             font-weight: 600;
         }
-
-        .contacts-list,
-        .groups-list {
+        .contacts-list, .groups-list {
             flex: 1;
             overflow-y: auto;
             padding: 8px;
         }
-
-        .contact-item,
-        .group-item {
+        .contact-item, .group-item {
             display: flex;
             align-items: center;
             gap: 12px;
@@ -241,17 +215,11 @@
             margin-bottom: 4px;
             background: #1a1a2e;
         }
-
-        .contact-item:active,
-        .group-item:active {
-            background: #2a2a3a;
-        }
-
-        .contact-avatar,
-        .group-avatar {
+        .contact-item:hover, .group-item:hover { background: #2a2a3a; }
+        .contact-avatar, .group-avatar {
             width: 48px;
             height: 48px;
-            background: linear-gradient(135deg, #2ea6ff, #0088cc);
+            background: linear-gradient(135deg, #7a5cff, #ff5ad6);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -260,34 +228,27 @@
             font-weight: 600;
             flex-shrink: 0;
         }
-
-        .contact-info,
-        .group-info {
+        .contact-info, .group-info {
             flex: 1;
             min-width: 0;
         }
-
-        .contact-name,
-        .group-name {
+        .contact-name, .group-name {
             font-weight: 600;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-
         .contact-status {
             font-size: 11px;
-            color: #2ea6ff;
+            color: #7a5cff;
         }
-
         .call-buttons {
             display: flex;
             gap: 8px;
             flex-shrink: 0;
         }
-
         .call-icon {
-            background: #2ea6ff;
+            background: #7a5cff;
             border: none;
             width: 36px;
             height: 36px;
@@ -297,31 +258,26 @@
             color: white;
             transition: transform 0.1s;
         }
-
-        .call-icon:active {
-            transform: scale(0.94);
-        }
+        .call-icon:active { transform: scale(0.94); }
 
         /* Создание группы */
         .create-group {
             padding: 12px;
-            border-bottom: 1px solid #2ea6ff;
+            border-bottom: 1px solid #7a5cff;
             display: flex;
             gap: 8px;
         }
-
         .create-group input {
             flex: 1;
             padding: 10px;
             background: #1a1a2e;
-            border: 1px solid #2ea6ff;
+            border: 1px solid #7a5cff;
             border-radius: 20px;
             color: white;
             font-size: 14px;
         }
-
         .create-group button {
-            background: #2ea6ff;
+            background: #7a5cff;
             border: none;
             padding: 0 20px;
             border-radius: 20px;
@@ -337,7 +293,7 @@
             left: 20px;
             right: 20px;
             background: #1a1a2e;
-            border-left: 4px solid #2ea6ff;
+            border-left: 4px solid #7a5cff;
             border-radius: 16px;
             padding: 12px 16px;
             text-align: center;
@@ -345,17 +301,9 @@
             z-index: 1000;
             animation: slideDown 0.3s ease;
         }
-
         @keyframes slideDown {
-            from {
-                transform: translateY(-100%);
-                opacity: 0;
-            }
-
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
 
         /* Мобильная адаптация */
@@ -365,17 +313,9 @@
                 align-items: center;
                 justify-content: center;
             }
-
-            .logo span {
-                display: none;
-            }
-
-            .user-name {
-                display: none;
-            }
-
-            .contacts-sidebar,
-            .groups-list {
+            .logo span { display: none; }
+            .user-name { display: none; }
+            .contacts-sidebar, .groups-list {
                 position: fixed;
                 top: 0;
                 left: 0;
@@ -384,319 +324,300 @@
                 z-index: 400;
                 transform: translateX(-100%);
                 transition: transform 0.3s ease;
-                background: #0f0f1a;
-                border-right: 1px solid #2ea6ff;
+                background: #0f0f18;
+                border-right: 1px solid #7a5cff;
             }
-
-            .contacts-sidebar.open,
-            .groups-list.open {
+            .contacts-sidebar.open, .groups-list.open {
                 transform: translateX(0);
             }
-
             .call-icon {
                 width: 44px;
                 height: 44px;
                 font-size: 22px;
             }
-
-            .contact-avatar,
-            .group-avatar {
-                width: 52px;
-                height: 52px;
-                font-size: 22px;
-            }
-
-            .contact-item,
-            .group-item {
-                padding: 14px;
-            }
-
-            .create-group input {
-                padding: 12px;
-                font-size: 16px;
-            }
-
-            .create-group button {
-                padding: 0 24px;
-            }
         }
 
-        @media (max-width: 480px) {
-            .call-icon {
-                width: 40px;
-                height: 40px;
-                font-size: 20px;
-            }
-
-            .contact-avatar,
-            .group-avatar {
-                width: 48px;
-                height: 48px;
-                font-size: 20px;
-            }
-
-            .contacts-header,
-            .create-group {
-                padding: 12px;
-            }
-        }
-
-        .hidden {
-            display: none;
-        }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-    <div id="authContainer" class="auth-container">
-        <div class="auth-card">
-            <div class="auth-logo">📞</div>
-            <h1>TelegramCall MAX</h1>
-            <div class="auth-sub">Все функции звонков бесплатно</div>
-            <input type="text" id="regUsername" class="auth-input" placeholder="Ваше имя" autocomplete="off">
-            <input type="text" id="regUserId" class="auth-input" placeholder="Ваш ID" autocomplete="off">
-            <button class="auth-btn" id="registerBtn">Зарегистрироваться</button>
-            <div class="auth-sub" style="margin-top: 16px; font-size: 11px;">Скажите свой ID собеседнику</div>
+<div id="authContainer" class="auth-container">
+    <div class="auth-card">
+        <div class="auth-logo">📞</div>
+        <h1>Craheapp</h1>
+        <div class="auth-sub">Войдите, чтобы начать общение</div>
+        <input type="text" id="regUsername" class="auth-input" placeholder="Ваше имя" autocomplete="off">
+        <input type="text" id="regUserId" class="auth-input" placeholder="Ваш ID" autocomplete="off">
+        <button class="auth-btn" id="registerBtn">Войти</button>
+        <div class="auth-sub" style="margin-top: 16px; font-size: 11px;">Скажите свой ID собеседнику</div>
+    </div>
+</div>
+
+<div id="appContainer" class="app-container hidden">
+    <div class="telegram-header">
+        <button class="mobile-menu-btn" id="menuBtn">☰</button>
+        <div class="logo">
+            <div class="logo-icon">📞</div>
+            <span>Craheapp</span>
+        </div>
+        <div class="user-info">
+            <span class="user-name" id="currentUserName"></span>
+            <div class="avatar" id="userAvatar"></div>
         </div>
     </div>
 
-    <div id="appContainer" class="app-container hidden">
-        <div class="telegram-header">
-            <button class="mobile-menu-btn" id="menuBtn">☰</button>
-            <div class="logo">
-                <div class="logo-icon">📞</div>
-                <span>TelegramCall MAX</span>
-            </div>
-            <div class="user-info">
-                <span class="user-name" id="currentUserName"></span>
-                <div class="avatar" id="userAvatar"></div>
-            </div>
-        </div>
-
-        <!-- Вкладки -->
-        <div class="tabs">
-            <div class="tab active" data-tab="contacts">Личные звонки</div>
-            <div class="tab" data-tab="groups">Групповые конференции</div>
-        </div>
-
-        <!-- Содержимое вкладок -->
-        <div class="tab-content active" id="tab-contacts">
-            <div class="contacts-sidebar">
-                <div class="contacts-header">Контакты онлайн</div>
-                <div class="contacts-list" id="contactsList"></div>
-            </div>
-        </div>
-        <div class="tab-content" id="tab-groups">
-            <div class="create-group">
-                <input type="text" id="groupNameInput" placeholder="Название конференции">
-                <button id="createGroupBtn">Создать</button>
-            </div>
-            <div class="groups-list" id="groupsList"></div>
-        </div>
+    <div class="tabs">
+        <div class="tab active" data-tab="contacts">Контакты</div>
+        <div class="tab" data-tab="groups">Групповые звонки</div>
     </div>
 
-    <div id="contactsOverlay" class="hidden" style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); z-index: 399;"></div>
+    <div class="tab-content active" id="tab-contacts">
+        <div class="contacts-sidebar">
+            <div class="contacts-header">Контакты онлайн</div>
+            <div class="contacts-list" id="contactsList"></div>
+        </div>
+    </div>
+    <div class="tab-content" id="tab-groups">
+        <div class="create-group">
+            <input type="text" id="groupNameInput" placeholder="Название конференции">
+            <button id="createGroupBtn">Создать</button>
+        </div>
+        <div class="groups-list" id="groupsList"></div>
+    </div>
+</div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        // ========== Глобальные переменные ==========
-        let socket = null;
-        let currentUser = null;
+<div id="contactsOverlay" class="hidden" style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); z-index: 399;"></div>
 
-        // DOM элементы
-        const authContainer = document.getElementById('authContainer');
-        const appContainer = document.getElementById('appContainer');
-        const registerBtn = document.getElementById('registerBtn');
-        const contactsList = document.getElementById('contactsList');
-        const groupsList = document.getElementById('groupsList');
-        const menuBtn = document.getElementById('menuBtn');
-        const contactsOverlay = document.getElementById('contactsOverlay');
-        const tabBtns = document.querySelectorAll('.tab');
-        const tabContents = document.querySelectorAll('.tab-content');
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    // ========== Глобальные переменные ==========
+    let socket = null;
+    let currentUser = null;
+    let callState = 'idle'; // idle, calling
+    let groupsList = [];
 
-        // Вспомогательные функции
-        function showNotification(msg, isError = false) {
-            const n = document.createElement('div');
-            n.className = 'notification';
-            n.style.borderLeftColor = isError ? '#dc2626' : '#2ea6ff';
-            n.textContent = msg;
-            document.body.appendChild(n);
-            setTimeout(() => n.remove(), 3000);
+    // DOM элементы
+    const authContainer = document.getElementById('authContainer');
+    const appContainer = document.getElementById('appContainer');
+    const registerBtn = document.getElementById('registerBtn');
+    const contactsList = document.getElementById('contactsList');
+    const groupsListEl = document.getElementById('groupsList');
+    const menuBtn = document.getElementById('menuBtn');
+    const contactsOverlay = document.getElementById('contactsOverlay');
+    const tabBtns = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    // Вспомогательные функции
+    function showNotification(msg, isError = false) {
+        const n = document.createElement('div');
+        n.className = 'notification';
+        n.style.borderLeftColor = isError ? '#ff5252' : '#7a5cff';
+        n.textContent = msg;
+        document.body.appendChild(n);
+        setTimeout(() => n.remove(), 3000);
+    }
+
+    function closeMobileMenu() {
+        document.querySelectorAll('.contacts-sidebar, .groups-list').forEach(el => el.classList.remove('open'));
+        contactsOverlay.classList.add('hidden');
+    }
+    function openMobileMenu() {
+        if (window.innerWidth <= 768) {
+            const activeTab = document.querySelector('.tab.active').dataset.tab;
+            const target = activeTab === 'contacts' ? document.querySelector('#tab-contacts .contacts-sidebar') : document.querySelector('#tab-groups .groups-list');
+            if (target) target.classList.add('open');
+            contactsOverlay.classList.remove('hidden');
         }
+    }
+    menuBtn?.addEventListener('click', openMobileMenu);
+    contactsOverlay.addEventListener('click', closeMobileMenu);
+    window.addEventListener('resize', () => { if (window.innerWidth > 768) closeMobileMenu(); });
 
-        function closeMobileMenu() {
-            document.querySelectorAll('.contacts-sidebar, .groups-list').forEach(el => el.classList.remove('open'));
-            contactsOverlay.classList.add('hidden');
-        }
-
-        function openMobileMenu() {
-            if (window.innerWidth <= 768) {
-                const activeTab = document.querySelector('.tab.active').dataset.tab;
-                const target = activeTab === 'contacts' ? document.querySelector('#tab-contacts .contacts-sidebar') : document.querySelector('#tab-groups .groups-list');
-                if (target) target.classList.add('open');
-                contactsOverlay.classList.remove('hidden');
-            }
-        }
-
-        menuBtn?.addEventListener('click', openMobileMenu);
-        contactsOverlay.addEventListener('click', closeMobileMenu);
-        window.addEventListener('resize', () => {
-            if (window.innerWidth > 768) closeMobileMenu();
+    // Переключение вкладок
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.dataset.tab;
+            tabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            tabContents.forEach(tc => tc.classList.remove('active'));
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            closeMobileMenu();
+            if (tabId === 'groups') loadGroups();
         });
+    });
 
-        // Переключение вкладок
-        tabBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tabId = btn.dataset.tab;
-                tabBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                tabContents.forEach(tc => tc.classList.remove('active'));
-                document.getElementById(`tab-${tabId}`).classList.add('active');
-                closeMobileMenu();
-                if (tabId === 'groups') loadGroups();
-            });
+    // Регистрация
+    registerBtn.addEventListener('click', async () => {
+        const username = document.getElementById('regUsername').value.trim();
+        const userId = document.getElementById('regUserId').value.trim();
+        if (!username || !userId) return showNotification('Заполните все поля', true);
+        currentUser = { id: userId, name: username };
+        const resp = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, userId })
         });
-
-        // Регистрация
-        registerBtn.addEventListener('click', async () => {
-            const username = document.getElementById('regUsername').value.trim();
-            const userId = document.getElementById('regUserId').value.trim();
-            if (!username || !userId) return showNotification('Заполните все поля', true);
-            currentUser = { username, userId };
-            const resp = await fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, userId })
+        if (resp.ok) {
+            localStorage.setItem('craheapp_user', JSON.stringify(currentUser));
+            socket = io({ transports: ['websocket', 'polling'] });
+            socket.on('connect', () => {
+                socket.emit('register', { userId, username });
             });
-            if (resp.ok) {
-                socket = io({ transports: ['websocket', 'polling'] });
-                socket.on('connect', () => {
-                    socket.emit('register', { username, userId });
-                });
-                setupSocketListeners();
-                authContainer.classList.add('hidden');
-                appContainer.classList.remove('hidden');
-                document.getElementById('currentUserName').textContent = username;
-                document.getElementById('userAvatar').textContent = username[0].toUpperCase();
-            } else {
-                showNotification('Ошибка регистрации', true);
-            }
-        });
-
-        // Настройка сокетов
-        function setupSocketListeners() {
-            socket.on('user-list', (users) => renderContacts(users.filter(u => u.userId !== currentUser.userId)));
-            socket.on('group-list', (groups) => renderGroups(groups));
-            socket.on('incoming-call', (data) => {
-                showNotification(`Входящий звонок от ${data.fromName}`, false);
-                localStorage.setItem('callData', JSON.stringify({
-                    type: 'personal',
-                    targetId: data.from,
-                    targetName: data.fromName,
-                    callType: data.callType,
-                    isIncoming: true,
-                    myUserId: currentUser.userId,
-                    myUsername: currentUser.username
-                }));
-                window.open('/call.html', '_blank');
-            });
-            socket.on('group-created', (data) => {
-                loadGroups();
-                showNotification(`Группа "${data.groupName}" создана`);
-            });
-            socket.on('admitted-to-group', (data) => {
-                showNotification(`Вас пустили в группу "${data.groupName}"`);
-            });
-            socket.on('contact-removed', (data) => {
-                showNotification(`Контакт ${data.username} удалён из списка`, false);
-                socket.emit('get-users');
-            });
+            setupSocketListeners();
+            authContainer.classList.add('hidden');
+            appContainer.classList.remove('hidden');
+            document.getElementById('currentUserName').textContent = username;
+            document.getElementById('userAvatar').textContent = username[0].toUpperCase();
+        } else {
+            showNotification('Ошибка регистрации', true);
         }
+    });
 
-        // Рендер контактов
-        function renderContacts(users) {
-            if (!users.length) {
-                contactsList.innerHTML = '<div style="padding:20px;text-align:center;color:#8b949e;">Нет пользователей онлайн</div>';
+    // Настройка сокетов
+    function setupSocketListeners() {
+        socket.on('user-list', (users) => {
+            renderContacts(users.filter(u => u.userId !== currentUser.id));
+        });
+        socket.on('group-list', (groups) => {
+            groupsList = groups;
+            renderGroups(groups);
+        });
+        socket.on('incoming-call', (data) => {
+            if (callState !== 'idle') {
+                socket.emit('reject-call', { fromId: data.from });
                 return;
             }
-            contactsList.innerHTML = users.map(u => `
-                <div class="contact-item" data-user-id="${u.userId}">
-                    <div class="contact-avatar">${escapeHtml(u.username[0].toUpperCase())}</div>
-                    <div class="contact-info">
-                        <div class="contact-name">${escapeHtml(u.username)}</div>
-                        <div class="contact-status">● Онлайн</div>
-                    </div>
-                    <div class="call-buttons">
-                        <button class="call-icon" onclick="startPersonalCall('${u.userId}', '${escapeHtml(u.username)}', 'audio')">🎙️</button>
-                        <button class="call-icon" onclick="startPersonalCall('${u.userId}', '${escapeHtml(u.username)}', 'video')">📹</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // Начать личный звонок
-        window.startPersonalCall = (targetId, targetName, callType) => {
-            localStorage.setItem('callData', JSON.stringify({
+            showNotification(`Входящий звонок от ${data.fromName}`, false);
+            localStorage.setItem('craheapp_call', JSON.stringify({
                 type: 'personal',
-                targetId: targetId,
-                targetName: targetName,
-                callType: callType,
-                isIncoming: false,
-                myUserId: currentUser.userId,
-                myUsername: currentUser.username
+                targetId: data.from,
+                targetName: data.fromName,
+                isVideo: data.callType === 'video',
+                isIncoming: true
             }));
             window.open('/call.html', '_blank');
-            socket.emit('call-user', { targetId, callType });
-        };
-
-        // Рендер групп
-        function renderGroups(groups) {
-            if (!groups.length) {
-                groupsList.innerHTML = '<div style="padding:20px;text-align:center;color:#8b949e;">Нет активных конференций</div>';
-                return;
-            }
-            groupsList.innerHTML = groups.map(g => `
-                <div class="group-item">
-                    <div class="group-avatar">👥</div>
-                    <div class="group-info">
-                        <div class="group-name">${escapeHtml(g.name)}</div>
-                        <div class="contact-status">Участников: ${g.participants}</div>
-                    </div>
-                    <button class="call-icon" onclick="joinGroup('${g.groupId}', '${escapeHtml(g.name)}')">🔊</button>
-                </div>
-            `).join('');
-        }
-
-        // Присоединиться к группе
-        window.joinGroup = (groupId, groupName) => {
-            localStorage.setItem('callData', JSON.stringify({
-                type: 'group',
-                groupId: groupId,
-                groupName: groupName,
-                myUserId: currentUser.userId,
-                myUsername: currentUser.username
-            }));
-            window.open('/call.html', '_blank');
-            socket.emit('join-group-request', { groupId });
-        };
-
-        // Создание группы
-        document.getElementById('createGroupBtn').addEventListener('click', () => {
-            const name = document.getElementById('groupNameInput').value.trim();
-            if (!name) return showNotification('Введите название группы', true);
-            socket.emit('create-group', { groupName: name });
-            document.getElementById('groupNameInput').value = '';
         });
+        socket.on('group-created', (data) => {
+            loadGroups();
+            showNotification(`Группа "${data.groupName}" создана`);
+        });
+        socket.on('admitted-to-group', (data) => {
+            showNotification(`Вас пустили в группу "${data.groupName}"`);
+        });
+        socket.on('rejected-from-group', () => {
+            showNotification('Вас не пустили в группу', true);
+        });
+        socket.on('waiting-list-update', (data) => {
+            // опционально
+        });
+    }
 
-        // Загрузить список групп
-        function loadGroups() {
-            socket.emit('get-groups');
+    // Рендер контактов
+    function renderContacts(users) {
+        if (!users.length) {
+            contactsList.innerHTML = '<div style="padding:20px;text-align:center;color:#8b949e;">Нет пользователей онлайн</div>';
+            return;
         }
+        contactsList.innerHTML = users.map(u => `
+            <div class="contact-item" data-user-id="${u.userId}">
+                <div class="contact-avatar">${escapeHtml(u.username[0].toUpperCase())}</div>
+                <div class="contact-info">
+                    <div class="contact-name">${escapeHtml(u.username)}</div>
+                    <div class="contact-status">● Онлайн</div>
+                </div>
+                <div class="call-buttons">
+                    <button class="call-icon" onclick="startPersonalCall('${u.userId}', '${escapeHtml(u.username)}', false)">🎙️</button>
+                    <button class="call-icon" onclick="startPersonalCall('${u.userId}', '${escapeHtml(u.username)}', true)">📹</button>
+                </div>
+            </div>
+        `).join('');
+    }
 
-        // Экранирование HTML
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+    // Начать личный звонок
+    window.startPersonalCall = (targetId, targetName, isVideo) => {
+        if (callState !== 'idle') {
+            showNotification('Уже есть активный звонок', true);
+            return;
         }
-    </script>
+        callState = 'calling';
+        localStorage.setItem('craheapp_call', JSON.stringify({
+            type: 'personal',
+            targetId: targetId,
+            targetName: targetName,
+            isVideo: isVideo,
+            isIncoming: false
+        }));
+        window.open('/call.html', '_blank');
+        socket.emit('call:start', { targetId, callType: isVideo ? 'video' : 'audio' });
+        // Сброс состояния через таймаут (на случай если окно закрылось)
+        setTimeout(() => {
+            if (callState === 'calling') callState = 'idle';
+        }, 5000);
+    };
+
+    // Рендер групп
+    function renderGroups(groups) {
+        if (!groups.length) {
+            groupsListEl.innerHTML = '<div style="padding:20px;text-align:center;color:#8b949e;">Нет активных конференций</div>';
+            return;
+        }
+        groupsListEl.innerHTML = groups.map(g => `
+            <div class="group-item">
+                <div class="group-avatar">👥</div>
+                <div class="group-info">
+                    <div class="group-name">${escapeHtml(g.name)}</div>
+                    <div class="contact-status">Участников: ${g.participants}</div>
+                </div>
+                <button class="call-icon" onclick="joinGroup('${g.groupId}', '${escapeHtml(g.name)}')">🔊</button>
+            </div>
+        `).join('');
+    }
+
+    // Присоединиться к группе
+    window.joinGroup = (groupId, groupName) => {
+        if (callState !== 'idle') {
+            showNotification('Уже есть активный звонок', true);
+            return;
+        }
+        localStorage.setItem('craheapp_call', JSON.stringify({
+            type: 'group',
+            groupId: groupId,
+            groupName: groupName,
+            isIncoming: false
+        }));
+        window.open('/call.html', '_blank');
+        socket.emit('join-group-request', { groupId });
+    };
+
+    // Создание группы
+    document.getElementById('createGroupBtn').addEventListener('click', () => {
+        const name = document.getElementById('groupNameInput').value.trim();
+        if (!name) return showNotification('Введите название группы', true);
+        socket.emit('create-group', { groupName: name });
+        document.getElementById('groupNameInput').value = '';
+    });
+
+    // Загрузить список групп
+    function loadGroups() {
+        socket.emit('get-groups');
+    }
+
+    // Экранирование HTML
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
+    }
+
+    // Проверка сохранённого пользователя
+    const savedUser = localStorage.getItem('craheapp_user');
+    if (savedUser) {
+        try {
+            const user = JSON.parse(savedUser);
+            document.getElementById('regUsername').value = user.name;
+            document.getElementById('regUserId').value = user.id;
+            registerBtn.click();
+        } catch(e) {}
+    }
+</script>
 </body>
 </html>
