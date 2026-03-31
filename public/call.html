@@ -3,70 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Звонок — Craheapp Premium</title>
+    <title>Craheapp Secure Call</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         :root {
-            --tg-bg: #0f1721;
-            --tg-accent: #248bcf;
-            --tg-red: #eb5545;
-            --tg-green: #4cd964;
-            --tg-text: #ffffff;
-            --tg-secondary: rgba(255, 255, 255, 0.6);
-            --glass: rgba(255, 255, 255, 0.1);
-            --safe-top: env(safe-area-inset-top);
-            --safe-bottom: env(safe-area-inset-bottom);
+            --bg: #0f1721;
+            --accent: #248bcf;
+            --red: #ff3b30;
+            --green: #34c759;
+            --text: #ffffff;
+            --secondary: rgba(255, 255, 255, 0.6);
+            --glass: rgba(255, 255, 255, 0.08);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-font-smoothing: antialiased;
-            -webkit-tap-highlight-color: transparent;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-font-smoothing: antialiased; }
 
         body {
-            background: var(--tg-bg);
+            background: var(--bg);
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            color: var(--tg-text);
+            color: var(--text);
             height: 100vh;
             width: 100vw;
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            position: relative;
         }
 
-        /* Анимированный динамический фон */
-        .background-layer {
-            position: fixed;
+        /* Динамический фон для эффекта "дорогого" приложения */
+        .gradient-bg {
+            position: absolute;
             inset: 0;
             z-index: -1;
-            background: radial-gradient(circle at 50% 50%, #1a2a3a 0%, #0f1721 100%);
-            overflow: hidden;
+            background: radial-gradient(circle at 50% 50%, #1c2c3e 0%, #0f1721 100%);
         }
 
-        .bg-blob {
+        .animated-blob {
             position: absolute;
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, rgba(36,139,207,0.12) 0%, transparent 70%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(36,139,207,0.15) 0%, transparent 70%);
             border-radius: 50%;
-            animation: move 20s infinite alternate;
+            filter: blur(50px);
+            animation: drift 25s infinite alternate ease-in-out;
         }
 
-        @keyframes move {
-            from { transform: translate(-20%, -20%); }
-            to { transform: translate(30%, 20%); }
+        @keyframes drift {
+            from { transform: translate(-30%, -30%) scale(1); }
+            to { transform: translate(40%, 20%) scale(1.2); }
         }
 
-        /* Видео контейнеры */
-        .video-wrapper {
+        /* Слой видео */
+        .video-container {
             position: absolute;
             inset: 0;
             z-index: 1;
-            background: black;
-            display: none; /* Включается при видеозвонке */
+            background: #000;
+            display: none;
         }
 
         #remote-video {
@@ -75,30 +68,26 @@
             object-fit: cover;
         }
 
-        .local-preview {
+        .local-preview-card {
             position: absolute;
-            top: calc(20px + var(--safe-top));
+            top: 40px;
             right: 20px;
-            width: 100px;
-            height: 150px;
-            border-radius: 12px;
+            width: 110px;
+            height: 160px;
+            border-radius: 16px;
             overflow: hidden;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-            border: 1.5px solid rgba(255,255,255,0.2);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+            border: 2px solid rgba(255,255,255,0.1);
             z-index: 100;
             background: #000;
             display: none;
+            transition: transform 0.3s;
         }
 
-        #local-video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-        }
+        #local-video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
 
-        /* Интерфейс поверх всего */
-        .ui-layer {
+        /* UI управления */
+        .call-ui {
             position: relative;
             z-index: 10;
             height: 100%;
@@ -106,158 +95,97 @@
             flex-direction: column;
             align-items: center;
             justify-content: space-between;
-            padding: calc(60px + var(--safe-top)) 20px calc(40px + var(--safe-bottom));
-            background: linear-gradient(to bottom, rgba(15,23,33,0.4) 0%, transparent 30%, transparent 70%, rgba(15,23,33,0.8) 100%);
+            padding: 80px 24px 60px;
+            background: linear-gradient(to bottom, rgba(15,23,33,0.7) 0%, transparent 40%, transparent 60%, rgba(15,23,33,0.9) 100%);
         }
 
-        .header-info {
-            text-align: center;
-            animation: fadeInDown 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
+        .user-profile { text-align: center; }
 
-        .avatar-box {
+        .avatar-wrapper {
             position: relative;
-            width: 140px;
-            height: 140px;
-            margin: 0 auto 25px;
+            width: 150px;
+            height: 150px;
+            margin-bottom: 30px;
         }
 
-        .main-avatar {
+        .avatar-circle {
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            background: linear-gradient(135deg, #50a7ea 0%, #248bcf 100%);
+            background: linear-gradient(135deg, #50a7ea, #248bcf);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 56px;
-            font-weight: 600;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
-            z-index: 2;
+            font-size: 64px;
+            font-weight: bold;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
             position: relative;
+            z-index: 2;
         }
 
-        .pulse-ring {
+        .pulse {
             position: absolute;
             inset: 0;
             border-radius: 50%;
-            background: var(--tg-accent);
+            background: var(--accent);
             opacity: 0;
             z-index: 1;
+            animation: pulse-ring 2.5s infinite;
         }
 
-        .ringing .pulse-ring {
-            animation: ring-pulse 2s infinite;
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.6; }
+            100% { transform: scale(1.9); opacity: 0; }
         }
 
-        @keyframes ring-pulse {
-            0% { transform: scale(1); opacity: 0.5; }
-            100% { transform: scale(1.8); opacity: 0; }
-        }
+        .peer-name { font-size: 36px; font-weight: 700; margin-bottom: 8px; }
+        .call-status { font-size: 18px; color: var(--secondary); letter-spacing: 0.5px; }
 
-        .caller-name {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 10px;
-            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-        }
-
-        .status-text {
-            font-size: 17px;
-            color: var(--tg-secondary);
-            font-weight: 400;
-            letter-spacing: 0.2px;
-        }
-
-        /* Панель управления */
-        .controls-grid {
+        /* Кнопки управления */
+        .controls-panel {
             width: 100%;
-            max-width: 360px;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
+            max-width: 400px;
+            display: flex;
+            justify-content: space-evenly;
             align-items: center;
-            justify-items: center;
         }
 
-        .control-item {
+        .action-btn {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             cursor: pointer;
-            width: 100%;
+            transition: 0.2s;
         }
 
-        .circle-btn {
-            width: 64px;
-            height: 64px;
+        .icon-circle {
+            width: 68px;
+            height: 68px;
             border-radius: 50%;
             background: var(--glass);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
-        .circle-btn svg {
-            width: 28px;
-            height: 28px;
-            fill: #fff;
-        }
+        .icon-circle svg { width: 30px; height: 30px; fill: #fff; }
 
-        .circle-btn.active {
-            background: #fff;
-        }
+        .icon-circle.hangup { background: var(--red); transform: rotate(135deg); width: 80px; height: 80px; }
+        .icon-circle.accept { background: var(--green); width: 80px; height: 80px; animation: shake 2s infinite; }
 
-        .circle-btn.active svg {
-            fill: #000;
-        }
+        .icon-circle.active { background: #fff; }
+        .icon-circle.active svg { fill: #000; }
 
-        .circle-btn.red {
-            background: var(--tg-red);
-            width: 76px;
-            height: 76px;
-        }
+        .btn-label { font-size: 14px; color: var(--secondary); font-weight: 500; }
 
-        .circle-btn.green {
-            background: var(--tg-green);
-            width: 76px;
-            height: 76px;
-            animation: bounce 2s infinite;
-        }
-
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
-        }
-
-        .btn-desc {
-            font-size: 13px;
-            color: var(--tg-secondary);
-            font-weight: 500;
-        }
-
-        /* Всплывающее уведомление */
-        .toast {
-            position: fixed;
-            top: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.8);
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-size: 14px;
-            z-index: 1000;
-            display: none;
-        }
-
-        @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
+        @keyframes shake {
+            0%, 100% { transform: scale(1); }
+            10%, 30% { transform: scale(1.1) rotate(-3deg); }
+            20%, 40% { transform: scale(1.1) rotate(3deg); }
         }
 
         .hidden { display: none !important; }
@@ -265,69 +193,230 @@
 </head>
 <body>
 
-    <div class="background-layer">
-        <div class="bg-blob"></div>
+    <div class="gradient-bg">
+        <div class="animated-blob"></div>
     </div>
 
-    <div class="video-wrapper" id="v-remote-cont">
+    <div class="video-container" id="remote-wrapper">
         <video id="remote-video" autoplay playsinline></video>
     </div>
-    <div class="local-preview" id="v-local-cont">
+    <div class="local-preview-card" id="local-wrapper">
         <video id="local-video" autoplay playsinline muted></video>
     </div>
 
-    <div class="ui-layer">
-        <div class="header-info" id="info-block">
-            <div class="avatar-box ringing" id="avatar-anim">
-                <div class="pulse-ring"></div>
-                <div class="pulse-ring" style="animation-delay: 0.5s"></div>
-                <div class="main-avatar" id="display-avatar">?</div>
+    <div class="call-ui">
+        <div class="user-profile">
+            <div class="avatar-wrapper" id="ring-anim">
+                <div class="pulse"></div>
+                <div class="pulse" style="animation-delay: 0.8s"></div>
+                <div class="avatar-circle" id="user-initial">?</div>
             </div>
-            <h1 class="caller-name" id="display-name">Загрузка...</h1>
-            <p class="status-text" id="display-status">Инициализация...</p>
+            <h1 class="peer-name" id="user-name">Загрузка...</h1>
+            <p class="call-status" id="status-label">Инициализация протоколов...</p>
         </div>
 
-        <div class="controls-grid">
-            <div class="control-item" id="btn-mic">
-                <div class="circle-btn" id="mic-bg">
+        <div class="controls-panel">
+            <div class="action-btn" id="toggle-mic">
+                <div class="icon-circle" id="mic-icon">
                     <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
                 </div>
-                <span class="btn-desc">Звук</span>
+                <span class="btn-label">Звук</span>
             </div>
 
-            <div class="control-item" id="btn-video">
-                <div class="circle-btn" id="video-bg">
-                    <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-                </div>
-                <span class="btn-desc">Камера</span>
-            </div>
-
-            <div class="control-item">
-                <div class="circle-btn">
-                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-                </div>
-                <span class="btn-desc">Инфо</span>
-            </div>
-
-            <div class="control-item hidden" id="answer-box">
-                <div class="circle-btn green">
+            <div class="action-btn hidden" id="answer-btn">
+                <div class="icon-circle accept">
                     <svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
                 </div>
-                <span class="btn-desc">Ответить</span>
+                <span class="btn-label">Принять</span>
             </div>
 
-            <div class="control-item" id="hangup-box">
-                <div class="circle-btn red">
-                    <svg viewBox="0 0 24 24" style="transform: rotate(135deg);"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+            <div class="action-btn" id="hangup-btn">
+                <div class="icon-circle hangup">
+                    <svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
                 </div>
-                <span class="btn-desc" id="hangup-text">Сбросить</span>
+                <span class="btn-label" id="hangup-label">Отмена</span>
+            </div>
+
+            <div class="action-btn" id="toggle-video">
+                <div class="icon-circle" id="video-icon">
+                    <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                </div>
+                <span class="btn-label">Видео</span>
             </div>
         </div>
     </div>
 
-    <audio id="snd-ring" src="https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3" loop></audio>
-    <audio id="snd-dial" src="https://assets.mixkit.co/active_storage/sfx/1358/1358-preview.mp3" loop></audio>
+    <audio id="dial-sound" src="https://assets.mixkit.co/active_storage/sfx/1358/1358-preview.mp3" loop></audio>
+    <audio id="ring-sound" src="https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3" loop></audio>
 
-    <script src="call_logic.js"></script>
+    <script>
+        // ========== WEBRTC & SIGNALING CORE ==========
+        const socket = io();
+        let pc = null;
+        let localStream = null;
+        let isStarted = false;
+        
+        // Буфер для кандидатов (критически важно для исправления бесконечного подключения)
+        let remoteCandidatesQueue = [];
+
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ],
+            iceCandidatePoolSize: 10
+        };
+
+        const callInfo = JSON.parse(localStorage.getItem('craheapp_call') || '{}');
+        const userInfo = JSON.parse(localStorage.getItem('craheapp_user') || '{}');
+
+        const statusLabel = document.getElementById('status-label');
+        const nameLabel = document.getElementById('user-name');
+        const initialLabel = document.getElementById('user-initial');
+
+        async function initCall() {
+            if (!callInfo.targetUserId && !callInfo.fromUserId) return window.close();
+
+            const partnerName = callInfo.isIncoming ? callInfo.fromUsername : callInfo.targetUsername;
+            nameLabel.innerText = partnerName;
+            initialLabel.innerText = partnerName[0].toUpperCase();
+
+            // Регистрация сокета на ID пользователя (чтобы сервер знал, куда слать ответ)
+            socket.emit('call:register', { userId: userInfo.id, username: userInfo.name });
+
+            if (callInfo.isIncoming) {
+                statusLabel.innerText = "Входящий вызов...";
+                document.getElementById('answer-btn').classList.remove('hidden');
+                document.getElementById('ring-sound').play();
+            } else {
+                statusLabel.innerText = "Вызов...";
+                document.getElementById('dial-sound').play();
+                startOutgoingCall();
+            }
+        }
+
+        async function startOutgoingCall() {
+            await prepareLocalStream();
+            socket.emit('call:request', {
+                to: callInfo.targetUserId,
+                from: userInfo.id,
+                fromName: userInfo.name
+            });
+        }
+
+        async function prepareLocalStream() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                document.getElementById('local-video').srcObject = localStream;
+                document.getElementById('local-wrapper').style.display = 'block';
+                // По умолчанию видео выключено для экономии, если не нажата кнопка
+                localStream.getVideoTracks().forEach(t => t.enabled = false);
+            } catch (e) {
+                console.error("Медиа недоступно", e);
+                statusLabel.innerText = "Ошибка: нет доступа к микрофону";
+            }
+        }
+
+        async function setupPeer(targetId) {
+            pc = new RTCPeerConnection(rtcConfig);
+
+            // Добавление локальных треков
+            if (localStream) {
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            }
+
+            // Обработка удаленного потока
+            pc.ontrack = (event) => {
+                const remoteVideo = document.getElementById('remote-video');
+                if (remoteVideo.srcObject !== event.streams[0]) {
+                    remoteVideo.srcObject = event.streams[0];
+                    document.getElementById('remote-wrapper').style.display = 'block';
+                    document.getElementById('ring-anim').classList.remove('ringing');
+                    statusLabel.innerText = "Разговор...";
+                }
+            };
+
+            // Генерация ICE кандидатов
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('call:ice-candidate', {
+                        to: targetId,
+                        candidate: event.candidate
+                    });
+                }
+            };
+
+            pc.onconnectionstatechange = () => {
+                console.log("Connection State:", pc.connectionState);
+                if (pc.connectionState === 'connected') statusLabel.innerText = "Соединено";
+                if (pc.connectionState === 'failed') endCall();
+            };
+        }
+
+        // --- Обработка сигналов ---
+
+        socket.on('call:accepted', async (data) => {
+            document.getElementById('dial-sound').pause();
+            statusLabel.innerText = "Подключение...";
+            await setupPeer(callInfo.targetUserId);
+            
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            
+            socket.emit('call:offer', { to: callInfo.targetUserId, offer });
+        });
+
+        socket.on('call:offer', async (data) => {
+            if (!pc) await setupPeer(data.from);
+            
+            await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+            
+            // После установки RemoteDescription можно добавить накопленных кандидатов
+            while(remoteCandidatesQueue.length > 0) {
+                await pc.addIceCandidate(remoteCandidatesQueue.shift());
+            }
+
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            
+            socket.emit('call:answer', { to: data.from, answer });
+        });
+
+        socket.on('call:answer', async (data) => {
+            await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        });
+
+        socket.on('call:ice-candidate', async (data) => {
+            const candidate = new RTCIceCandidate(data.candidate);
+            if (pc && pc.remoteDescription) {
+                await pc.addIceCandidate(candidate);
+            } else {
+                remoteCandidatesQueue.push(candidate);
+            }
+        });
+
+        // --- Управление ---
+
+        document.getElementById('answer-btn').onclick = async () => {
+            document.getElementById('ring-sound').pause();
+            document.getElementById('answer-btn').classList.add('hidden');
+            statusLabel.innerText = "Соединение...";
+            await prepareLocalStream();
+            socket.emit('call:accept', { to: callInfo.fromUserId });
+        };
+
+        function endCall() {
+            if (pc) pc.close();
+            if (localStream) localStream.getTracks().forEach(t => t.stop());
+            socket.emit('call:end', { to: callInfo.isIncoming ? callInfo.fromUserId : callInfo.targetUserId });
+            window.close();
+        }
+
+        document.getElementById('hangup-btn').onclick = endCall;
+        socket.on('call:ended', () => window.close());
+
+        initCall();
+    </script>
 </body>
 </html>
