@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Звонок — Craheapp</title>
+    <title>Звонок — Craheapp Premium</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         :root {
@@ -13,8 +13,9 @@
             --tg-green: #4cd964;
             --tg-text: #ffffff;
             --tg-secondary: rgba(255, 255, 255, 0.6);
-            --safe-area-top: env(safe-area-inset-top);
-            --safe-area-bottom: env(safe-area-inset-bottom);
+            --glass: rgba(255, 255, 255, 0.1);
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
         }
 
         * {
@@ -30,490 +31,303 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             color: var(--tg-text);
             height: 100vh;
+            width: 100vw;
             overflow: hidden;
             display: flex;
             flex-direction: column;
         }
 
-        /* Анимированный фон как в TG */
-        .bg-gradient {
+        /* Анимированный динамический фон */
+        .background-layer {
             position: fixed;
-            top: 0;
-            left: 0;
+            inset: 0;
+            z-index: -1;
+            background: radial-gradient(circle at 50% 50%, #1a2a3a 0%, #0f1721 100%);
+            overflow: hidden;
+        }
+
+        .bg-blob {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(36,139,207,0.12) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: move 20s infinite alternate;
+        }
+
+        @keyframes move {
+            from { transform: translate(-20%, -20%); }
+            to { transform: translate(30%, 20%); }
+        }
+
+        /* Видео контейнеры */
+        .video-wrapper {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            background: black;
+            display: none; /* Включается при видеозвонке */
+        }
+
+        #remote-video {
             width: 100%;
             height: 100%;
-            background: radial-gradient(circle at 50% 50%, #1a2a3a 0%, #0f1721 100%);
-            z-index: -1;
+            object-fit: cover;
         }
 
-        .bg-animation {
+        .local-preview {
             position: absolute;
-            width: 150%;
-            height: 150%;
-            background: radial-gradient(circle, rgba(36,139,207,0.15) 0%, transparent 50%);
-            animation: moveBg 15s infinite linear;
+            top: calc(20px + var(--safe-top));
+            right: 20px;
+            width: 100px;
+            height: 150px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            border: 1.5px solid rgba(255,255,255,0.2);
+            z-index: 100;
+            background: #000;
+            display: none;
         }
 
-        @keyframes moveBg {
-            0% { transform: translate(-25%, -25%); }
-            50% { transform: translate(0%, 0%); }
-            100% { transform: translate(-25%, -25%); }
+        #local-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
         }
 
-        /* Основной контейнер */
-        .call-wrapper {
-            flex: 1;
+        /* Интерфейс поверх всего */
+        .ui-layer {
+            position: relative;
+            z-index: 10;
+            height: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: space-between;
-            padding: calc(40px + var(--safe-area-top)) 20px calc(40px + var(--safe-area-bottom));
-            z-index: 10;
+            padding: calc(60px + var(--safe-top)) 20px calc(40px + var(--safe-bottom));
+            background: linear-gradient(to bottom, rgba(15,23,33,0.4) 0%, transparent 30%, transparent 70%, rgba(15,23,33,0.8) 100%);
         }
 
-        /* Информация о собеседнике */
-        .user-info {
+        .header-info {
             text-align: center;
-            margin-top: 20px;
-            animation: fadeInDown 0.6s ease-out;
+            animation: fadeInDown 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
-        .avatar-container {
+        .avatar-box {
             position: relative;
-            width: 120px;
-            height: 120px;
-            margin: 0 auto 20px;
+            width: 140px;
+            height: 140px;
+            margin: 0 auto 25px;
         }
 
-        .avatar {
+        .main-avatar {
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            background: linear-gradient(135deg, #50a7ea, #248bcf);
+            background: linear-gradient(135deg, #50a7ea 0%, #248bcf 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 48px;
-            font-weight: 500;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            position: relative;
+            font-size: 56px;
+            font-weight: 600;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
             z-index: 2;
+            position: relative;
         }
 
-        /* Пульсация при звонке */
-        .pulse {
+        .pulse-ring {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            inset: 0;
             border-radius: 50%;
             background: var(--tg-accent);
-            opacity: 0.5;
+            opacity: 0;
             z-index: 1;
         }
 
-        .active-call .pulse {
-            animation: pulse-animation 2s infinite;
+        .ringing .pulse-ring {
+            animation: ring-pulse 2s infinite;
         }
 
-        @keyframes pulse-animation {
+        @keyframes ring-pulse {
             0% { transform: scale(1); opacity: 0.5; }
-            100% { transform: scale(1.6); opacity: 0; }
+            100% { transform: scale(1.8); opacity: 0; }
         }
 
-        .username {
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 8px;
-            letter-spacing: -0.5px;
+        .caller-name {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
 
-        .call-status {
-            font-size: 16px;
+        .status-text {
+            font-size: 17px;
             color: var(--tg-secondary);
             font-weight: 400;
+            letter-spacing: 0.2px;
         }
 
-        /* Видео контейнеры */
-        #video-grid {
-            position: fixed;
-            top: 0;
-            left: 0;
+        /* Панель управления */
+        .controls-grid {
             width: 100%;
-            height: 100%;
+            max-width: 360px;
             display: grid;
-            grid-template-columns: 1fr;
-            z-index: 5;
-        }
-
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            background: #000;
-        }
-
-        .local-video-mini {
-            position: absolute;
-            top: calc(20px + var(--safe-area-top));
-            right: 20px;
-            width: 90px;
-            height: 140px;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
-            border: 1px solid rgba(255,255,255,0.1);
-            z-index: 20;
-        }
-
-        /* Панель управления (Buttons) */
-        .controls-panel {
-            width: 100%;
-            max-width: 400px;
-            display: flex;
-            justify-content: space-around;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
             align-items: center;
-            margin-bottom: 20px;
-            animation: fadeInUp 0.6s ease-out;
+            justify-items: center;
         }
 
-        .control-btn {
+        .control-item {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             cursor: pointer;
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            width: 100%;
         }
 
-        .control-btn:active {
-            transform: scale(0.9);
-        }
-
-        .icon-circle {
-            width: 60px;
-            height: 60px;
+        .circle-btn {
+            width: 64px;
+            height: 64px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255,255,255,0.05);
         }
 
-        .icon-circle svg {
+        .circle-btn svg {
             width: 28px;
             height: 28px;
-            fill: white;
+            fill: #fff;
         }
 
-        .btn-label {
-            font-size: 12px;
-            color: var(--tg-secondary);
+        .circle-btn.active {
+            background: #fff;
         }
 
-        /* Кнопки состояний */
-        .icon-circle.active {
-            background: white;
-        }
-        .icon-circle.active svg {
-            fill: var(--tg-bg);
+        .circle-btn.active svg {
+            fill: #000;
         }
 
-        .btn-hangup .icon-circle {
+        .circle-btn.red {
             background: var(--tg-red);
-            width: 72px;
-            height: 72px;
+            width: 76px;
+            height: 76px;
         }
 
-        .btn-answer .icon-circle {
+        .circle-btn.green {
             background: var(--tg-green);
-            width: 72px;
-            height: 72px;
+            width: 76px;
+            height: 76px;
+            animation: bounce 2s infinite;
         }
 
-        /* Анимации появления */
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .btn-desc {
+            font-size: 13px;
+            color: var(--tg-secondary);
+            font-weight: 500;
+        }
+
+        /* Всплывающее уведомление */
+        .toast {
+            position: fixed;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+        }
+
         @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(30px); }
+            from { opacity: 0; transform: translateY(-20px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Скрытие элементов */
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <div class="bg-gradient">
-        <div class="bg-animation"></div>
+    <div class="background-layer">
+        <div class="bg-blob"></div>
     </div>
 
-    <div id="video-grid">
+    <div class="video-wrapper" id="v-remote-cont">
         <video id="remote-video" autoplay playsinline></video>
     </div>
-    <div class="local-video-mini" id="local-video-container" style="display: none;">
+    <div class="local-preview" id="v-local-cont">
         <video id="local-video" autoplay playsinline muted></video>
     </div>
 
-    <div class="call-wrapper" id="main-ui">
-        <div class="user-info">
-            <div class="avatar-container active-call" id="avatar-container">
-                <div class="pulse"></div>
-                <div class="avatar" id="peer-avatar">?</div>
+    <div class="ui-layer">
+        <div class="header-info" id="info-block">
+            <div class="avatar-box ringing" id="avatar-anim">
+                <div class="pulse-ring"></div>
+                <div class="pulse-ring" style="animation-delay: 0.5s"></div>
+                <div class="main-avatar" id="display-avatar">?</div>
             </div>
-            <h1 class="username" id="peer-name">Загрузка...</h1>
-            <p class="call-status" id="call-status">Инициализация...</p>
+            <h1 class="caller-name" id="display-name">Загрузка...</h1>
+            <p class="status-text" id="display-status">Инициализация...</p>
         </div>
 
-        <div class="controls-panel">
-            <div class="control-btn" id="toggle-mic">
-                <div class="icon-circle" id="mic-icon-bg">
+        <div class="controls-grid">
+            <div class="control-item" id="btn-mic">
+                <div class="circle-btn" id="mic-bg">
                     <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
                 </div>
-                <span class="btn-label">Микрофон</span>
+                <span class="btn-desc">Звук</span>
             </div>
 
-            <div class="control-btn" id="toggle-video">
-                <div class="icon-circle" id="video-icon-bg">
+            <div class="control-item" id="btn-video">
+                <div class="circle-btn" id="video-bg">
                     <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
                 </div>
-                <span class="btn-label">Камера</span>
+                <span class="btn-desc">Камера</span>
             </div>
 
-            <div class="control-btn btn-hangup" id="hangup-btn">
-                <div class="icon-circle">
-                    <svg viewBox="0 0 24 24" style="transform: rotate(135deg);"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+            <div class="control-item">
+                <div class="circle-btn">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
                 </div>
-                <span class="btn-label">Сбросить</span>
+                <span class="btn-desc">Инфо</span>
             </div>
 
-            <div class="control-btn btn-answer hidden" id="answer-btn">
-                <div class="icon-circle">
+            <div class="control-item hidden" id="answer-box">
+                <div class="circle-btn green">
                     <svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
                 </div>
-                <span class="btn-label">Ответить</span>
+                <span class="btn-desc">Ответить</span>
+            </div>
+
+            <div class="control-item" id="hangup-box">
+                <div class="circle-btn red">
+                    <svg viewBox="0 0 24 24" style="transform: rotate(135deg);"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+                </div>
+                <span class="btn-desc" id="hangup-text">Сбросить</span>
             </div>
         </div>
     </div>
 
-    <audio id="ringtone" src="https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3" loop></audio>
-    <audio id="dialtone" src="https://assets.mixkit.co/active_storage/sfx/1358/1358-preview.mp3" loop></audio>
+    <audio id="snd-ring" src="https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3" loop></audio>
+    <audio id="snd-dial" src="https://assets.mixkit.co/active_storage/sfx/1358/1358-preview.mp3" loop></audio>
 
-    <script>
-        // Инициализация переменных
-        const socket = io();
-        let peerConnection;
-        let localStream;
-        let remoteStream;
-        let callData = JSON.parse(localStorage.getItem('craheapp_call') || '{}');
-        let isMicOn = true;
-        let isVideoOn = false;
-        let callTimer;
-        let seconds = 0;
-
-        const servers = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
-            ]
-        };
-
-        // UI Элементы
-        const statusEl = document.getElementById('call-status');
-        const nameEl = document.getElementById('peer-name');
-        const avatarEl = document.getElementById('peer-avatar');
-        const ringtone = document.getElementById('ringtone');
-        const dialtone = document.getElementById('dialtone');
-
-        // Начальная настройка интерфейса
-        async function init() {
-            if (!callData.type) {
-                window.location.href = '/';
-                return;
-            }
-
-            nameEl.innerText = callData.isIncoming ? callData.fromUsername : callData.targetUsername;
-            avatarEl.innerText = (callData.isIncoming ? callData.fromUsername : callData.targetUsername).charAt(0).toUpperCase();
-
-            // Регистрация на сокете
-            socket.emit('call:register', { userId: callData.myUserId });
-
-            if (callData.isIncoming) {
-                setupIncomingCall();
-            } else {
-                setupOutgoingCall();
-            }
-        }
-
-        // Логика исходящего вызова
-        async function setupOutgoingCall() {
-            statusEl.innerText = "Вызов...";
-            dialtone.play();
-            document.getElementById('answer-btn').classList.add('hidden');
-            
-            // Запрашиваем медиа сразу для готовности
-            try {
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideoOn });
-                document.getElementById('local-video').srcObject = localStream;
-            } catch (e) {
-                console.error("Доступ запрещен", e);
-                statusEl.innerText = "Ошибка доступа к микрофону";
-            }
-
-            // Отправляем запрос на звонок
-            socket.emit('call:request', {
-                to: callData.targetUserId,
-                from: callData.myUserId,
-                fromName: callData.myUsername
-            });
-        }
-
-        // Логика входящего вызова
-        function setupIncomingCall() {
-            statusEl.innerText = "Входящий звонок...";
-            ringtone.play();
-            document.getElementById('answer-btn').classList.remove('hidden');
-            document.getElementById('hangup-btn').querySelector('.btn-label').innerText = "Отклонить";
-        }
-
-        // Принятие звонка
-        document.getElementById('answer-btn').onclick = async () => {
-            ringtone.pause();
-            statusEl.innerText = "Соединение...";
-            document.getElementById('answer-btn').classList.add('hidden');
-            document.getElementById('hangup-btn').querySelector('.btn-label').innerText = "Завершить";
-            
-            socket.emit('call:accept', { to: callData.fromUserId });
-            startWebRTC(callData.fromUserId);
-        };
-
-        // Сброс звонка
-        document.getElementById('hangup-btn').onclick = () => {
-            endCall();
-        };
-
-        function endCall() {
-            if (peerConnection) peerConnection.close();
-            if (localStream) localStream.getTracks().forEach(t => t.stop());
-            socket.emit('call:end', { to: callData.isIncoming ? callData.fromUserId : callData.targetUserId });
-            window.close(); // Если открыто в новом окне
-            window.location.href = '/';
-        }
-
-        // WebRTC Основная часть
-        async function startWebRTC(targetId) {
-            peerConnection = new RTCPeerConnection(servers);
-
-            // Получаем поток если еще нет
-            if (!localStream) {
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isVideoOn });
-                document.getElementById('local-video').srcObject = localStream;
-            }
-
-            localStream.getTracks().forEach(track => {
-                peerConnection.addTrack(track, localStream);
-            });
-
-            peerConnection.ontrack = (event) => {
-                const remoteVideo = document.getElementById('remote-video');
-                remoteVideo.srcObject = event.streams[0];
-                remoteStream = event.streams[0];
-                startTimer();
-            };
-
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit('call:ice-candidate', {
-                        to: targetId,
-                        candidate: event.candidate
-                    });
-                }
-            };
-
-            // Создание Offer (если мы инициатор после принятия)
-            if (!callData.isIncoming) {
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-                socket.emit('call:offer', { to: targetId, offer });
-            }
-        }
-
-        // Таймер разговора
-        function startTimer() {
-            dialtone.pause();
-            ringtone.pause();
-            clearInterval(callTimer);
-            seconds = 0;
-            callTimer = setInterval(() => {
-                seconds++;
-                let mins = Math.floor(seconds / 60);
-                let secs = seconds % 60;
-                statusEl.innerText = `${mins}:${secs < 10 ? '0' + secs : secs}`;
-            }, 1000);
-            document.getElementById('avatar-container').classList.remove('active-call');
-        }
-
-        // Обработка сигналов сокета
-        socket.on('call:accepted', (data) => {
-            statusEl.innerText = "Соединение...";
-            startWebRTC(callData.targetUserId);
-        });
-
-        socket.on('call:offer', async (data) => {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            socket.emit('call:answer', { to: data.from, answer });
-        });
-
-        socket.on('call:answer', async (data) => {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-        });
-
-        socket.on('call:ice-candidate', async (data) => {
-            if (peerConnection) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-            }
-        });
-
-        socket.on('call:ended', () => {
-            statusEl.innerText = "Звонок завершен";
-            setTimeout(() => endCall(), 1500);
-        });
-
-        // Управление кнопками
-        document.getElementById('toggle-mic').onclick = () => {
-            isMicOn = !isMicOn;
-            localStream.getAudioTracks()[0].enabled = isMicOn;
-            document.getElementById('mic-icon-bg').classList.toggle('active', !isMicOn);
-        };
-
-        document.getElementById('toggle-video').onclick = async () => {
-            isVideoOn = !isVideoOn;
-            const videoContainer = document.getElementById('local-video-container');
-            
-            if (isVideoOn) {
-                videoContainer.style.display = 'block';
-                // Обновляем поток с видео
-                const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                const videoTrack = videoStream.getVideoTracks()[0];
-                peerConnection.addTrack(videoTrack, localStream);
-                document.getElementById('local-video').srcObject = videoStream;
-            } else {
-                videoContainer.style.display = 'none';
-                localStream.getVideoTracks().forEach(t => t.stop());
-            }
-            document.getElementById('video-icon-bg').classList.toggle('active', isVideoOn);
-        };
-
-        init();
-    </script>
+    <script src="call_logic.js"></script>
 </body>
 </html>
