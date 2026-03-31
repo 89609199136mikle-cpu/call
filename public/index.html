@@ -2,625 +2,481 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Craheapp Messenger</title>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
+        :root {
+            --tg-blue: #248bcf;
+            --tg-bg: #0f1721;
+            --tg-sidebar: #17212b;
+            --tg-chat-bg: #0e1621;
+            --tg-hover: #202b36;
+            --tg-text: #ffffff;
+            --tg-text-muted: #708499;
+            --tg-sent-msg: #2b5278;
+            --tg-border: #111923;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
+            -webkit-font-smoothing: antialiased;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: #0f0f18;
-            color: #e6edf3;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-bg);
+            color: var(--tg-text);
             height: 100vh;
+            display: flex;
             overflow: hidden;
         }
 
-        /* ========== АВТОРИЗАЦИЯ ========== */
-        .auth-container {
+        /* --- Авторизация (Overlay) --- */
+        #auth-overlay {
             position: fixed;
             inset: 0;
-            background: linear-gradient(135deg, #0f0f18 0%, #1a1a2e 100%);
+            background: var(--tg-bg);
+            z-index: 1000;
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
+            flex-direction: column;
             padding: 20px;
         }
+
         .auth-card {
-            background: rgba(26, 26, 46, 0.95);
-            backdrop-filter: blur(12px);
-            border-radius: 32px;
-            padding: 32px 24px;
+            background: var(--tg-sidebar);
+            padding: 30px;
+            border-radius: 20px;
             width: 100%;
-            max-width: 380px;
+            max-width: 360px;
             text-align: center;
-            border: 1px solid rgba(122, 92, 255, 0.3);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
         }
-        .auth-logo {
-            width: 64px;
-            height: 64px;
-            background: linear-gradient(135deg, #7a5cff, #ff5ad6);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 32px;
-            margin: 0 auto 20px;
-        }
-        .auth-card h1 {
-            font-size: 28px;
-            background: linear-gradient(135deg, #7a5cff, #ff5ad6);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            margin-bottom: 8px;
-        }
-        .auth-sub {
-            color: #8b949e;
-            margin-bottom: 24px;
-            font-size: 14px;
-        }
-        .auth-input {
-            width: 100%;
-            padding: 14px 16px;
-            background: #1a1a2e;
-            border: 1px solid #7a5cff;
-            border-radius: 16px;
-            color: white;
-            font-size: 16px;
-            margin-bottom: 12px;
-            outline: none;
-            transition: 0.2s;
-        }
-        .auth-input:focus {
-            border-color: #ff5ad6;
-            box-shadow: 0 0 0 2px rgba(122, 92, 255, 0.2);
-        }
-        .auth-btn {
+
+        .auth-card h2 { margin-bottom: 20px; font-weight: 600; }
+
+        input {
             width: 100%;
             padding: 14px;
-            background: linear-gradient(135deg, #7a5cff, #ff5ad6);
-            border: none;
-            border-radius: 16px;
+            border-radius: 12px;
+            border: 1px solid var(--tg-border);
+            background: var(--tg-bg);
             color: white;
-            font-weight: 600;
+            margin-bottom: 15px;
             font-size: 16px;
-            cursor: pointer;
-            transition: transform 0.1s;
+            outline: none;
         }
-        .auth-btn:active { transform: scale(0.98); }
 
-        /* ========== ОСНОВНОЙ ИНТЕРФЕЙС ========== */
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: var(--tg-blue);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-primary:hover { opacity: 0.9; }
+
+        /* --- Основной интерфейс --- */
         .app-container {
             display: flex;
-            flex-direction: column;
-            height: 100vh;
             width: 100%;
-            background: #0f0f18;
+            height: 100%;
         }
-        .telegram-header {
-            background: #1a1a2e;
-            padding: 12px 16px;
+
+        /* Боковая панель (Sidebar) */
+        .sidebar {
+            width: 350px;
+            background: var(--tg-sidebar);
+            border-right: 1px solid var(--tg-border);
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #7a5cff;
-            flex-shrink: 0;
+            flex-direction: column;
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: 600;
-            font-size: 18px;
-        }
-        .logo-icon {
-            width: 32px;
-            height: 32px;
-            background: linear-gradient(135deg, #7a5cff, #ff5ad6);
-            border-radius: 50%;
+
+        .sidebar-header {
+            padding: 15px;
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 15px;
         }
-        .user-info {
+
+        .search-bar {
+            background: var(--tg-bg);
+            border-radius: 10px;
+            padding: 8px 15px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            margin: 0 15px 10px;
         }
-        .avatar {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #7a5cff, #ff5ad6);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            font-size: 18px;
-        }
-        .mobile-menu-btn {
-            display: none;
-            background: #7a5cff;
+
+        .search-bar input {
+            background: transparent;
             border: none;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            font-size: 20px;
-            cursor: pointer;
-            color: white;
+            margin: 0;
+            padding: 5px;
+            font-size: 14px;
         }
 
-        /* Вкладки */
-        .tabs {
-            display: flex;
-            background: #1a1a2e;
-            border-bottom: 1px solid #7a5cff;
-            flex-shrink: 0;
-        }
-        .tab {
-            flex: 1;
-            text-align: center;
-            padding: 12px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: 0.2s;
-            color: #8b949e;
-        }
-        .tab.active {
-            color: #ff5ad6;
-            border-bottom: 2px solid #ff5ad6;
-        }
-        .tab-content {
-            display: none;
-            flex: 1;
-            overflow: hidden;
-            flex-direction: column;
-        }
-        .tab-content.active {
-            display: flex;
-        }
-
-        /* Контакты */
-        .contacts-sidebar, .groups-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        .contacts-header {
-            padding: 16px;
-            border-bottom: 1px solid #7a5cff;
-            font-weight: 600;
-        }
-        .contacts-list, .groups-list {
+        .user-list {
             flex: 1;
             overflow-y: auto;
-            padding: 8px;
         }
-        .contact-item, .group-item {
+
+        .user-item {
+            padding: 12px 15px;
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 12px;
-            border-radius: 14px;
             cursor: pointer;
-            transition: background 0.2s;
-            margin-bottom: 4px;
-            background: #1a1a2e;
+            transition: 0.2s;
         }
-        .contact-item:hover, .group-item:hover { background: #2a2a3a; }
-        .contact-avatar, .group-avatar {
-            width: 48px;
-            height: 48px;
-            background: linear-gradient(135deg, #7a5cff, #ff5ad6);
+
+        .user-item:hover { background: var(--tg-hover); }
+        .user-item.active { background: var(--tg-blue); }
+
+        .user-avatar {
+            width: 50px;
+            height: 50px;
             border-radius: 50%;
+            background: #50a7ea;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
-            font-weight: 600;
+            font-weight: bold;
+            font-size: 18px;
             flex-shrink: 0;
         }
-        .contact-info, .group-info {
+
+        .user-info-brief {
             flex: 1;
-            min-width: 0;
+            overflow: hidden;
         }
-        .contact-name, .group-name {
-            font-weight: 600;
+
+        .user-info-brief h4 {
+            font-size: 15px;
+            margin-bottom: 4px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .contact-status {
-            font-size: 11px;
-            color: #7a5cff;
-        }
-        .call-buttons {
-            display: flex;
-            gap: 8px;
-            flex-shrink: 0;
-        }
-        .call-icon {
-            background: #7a5cff;
-            border: none;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            font-size: 18px;
-            cursor: pointer;
-            color: white;
-            transition: transform 0.1s;
-        }
-        .call-icon:active { transform: scale(0.94); }
 
-        /* Создание группы */
-        .create-group {
-            padding: 12px;
-            border-bottom: 1px solid #7a5cff;
-            display: flex;
-            gap: 8px;
-        }
-        .create-group input {
+        .status-online { color: var(--tg-blue); font-size: 13px; }
+
+        /* Главное окно чата */
+        .chat-main {
             flex: 1;
-            padding: 10px;
-            background: #1a1a2e;
-            border: 1px solid #7a5cff;
-            border-radius: 20px;
-            color: white;
-            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            background: var(--tg-chat-bg);
+            position: relative;
         }
-        .create-group button {
-            background: #7a5cff;
-            border: none;
+
+        .chat-header {
+            height: 60px;
             padding: 0 20px;
-            border-radius: 20px;
+            background: var(--tg-sidebar);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--tg-border);
+            z-index: 10;
+        }
+
+        .chat-header-user {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .back-btn {
+            display: none;
             cursor: pointer;
-            color: white;
-            font-weight: 500;
+            margin-right: 10px;
         }
 
-        /* Уведомления */
-        .notification {
-            position: fixed;
-            top: 70px;
-            left: 20px;
-            right: 20px;
-            background: #1a1a2e;
-            border-left: 4px solid #7a5cff;
-            border-radius: 16px;
-            padding: 12px 16px;
-            text-align: center;
-            font-size: 14px;
-            z-index: 1000;
-            animation: slideDown 0.3s ease;
-        }
-        @keyframes slideDown {
-            from { transform: translateY(-100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+        /* Сообщения */
+        .messages-container {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
+            background-blend-mode: overlay;
         }
 
-        /* Мобильная адаптация */
+        .message {
+            max-width: 70%;
+            padding: 8px 15px;
+            border-radius: 15px;
+            font-size: 15px;
+            position: relative;
+            line-height: 1.4;
+        }
+
+        .msg-in {
+            align-self: flex-start;
+            background: var(--tg-sidebar);
+            border-bottom-left-radius: 4px;
+        }
+
+        .msg-out {
+            align-self: flex-end;
+            background: var(--tg-sent-msg);
+            border-bottom-right-radius: 4px;
+        }
+
+        /* Поле ввода */
+        .input-area {
+            padding: 10px 20px calc(10px + var(--safe-area-bottom));
+            background: var(--tg-sidebar);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .message-input {
+            margin-bottom: 0;
+            background: transparent;
+            border: none;
+        }
+
+        /* Кнопки звонков (в точности как в TG) */
+        .call-btn-header {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .call-btn-header:hover { background: rgba(255,255,255,0.1); }
+
+        .call-btn-header svg {
+            width: 22px;
+            height: 22px;
+            fill: var(--tg-text-muted);
+        }
+
+        /* --- Mobile Adaptivity --- */
         @media (max-width: 768px) {
-            .mobile-menu-btn {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-            .logo span { display: none; }
-            .user-name { display: none; }
-            .contacts-sidebar, .groups-list {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 280px;
+            .sidebar {
+                width: 100%;
+                position: absolute;
                 height: 100%;
-                z-index: 400;
+                z-index: 20;
+            }
+
+            .sidebar.hidden {
                 transform: translateX(-100%);
-                transition: transform 0.3s ease;
-                background: #0f0f18;
-                border-right: 1px solid #7a5cff;
             }
-            .contacts-sidebar.open, .groups-list.open {
-                transform: translateX(0);
+
+            .chat-main {
+                width: 100%;
             }
-            .call-icon {
-                width: 44px;
-                height: 44px;
-                font-size: 22px;
-            }
+
+            .back-btn { display: block; }
         }
 
-        .hidden { display: none; }
+        .empty-chat {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--tg-text-muted);
+        }
     </style>
 </head>
 <body>
-<div id="authContainer" class="auth-container">
-    <div class="auth-card">
-        <div class="auth-logo">📞</div>
-        <h1>Craheapp</h1>
-        <div class="auth-sub">Видеозвонки без ограничений</div>
-        <input type="text" id="regUsername" class="auth-input" placeholder="Ваше имя" autocomplete="off">
-        <input type="text" id="regUserId" class="auth-input" placeholder="Ваш ID" autocomplete="off">
-        <button class="auth-btn" id="registerBtn">Войти</button>
-        <div class="auth-sub" style="margin-top: 16px; font-size: 11px;">Скажите свой ID собеседнику</div>
-    </div>
-</div>
 
-<div id="appContainer" class="app-container hidden">
-    <div class="telegram-header">
-        <button class="mobile-menu-btn" id="menuBtn">☰</button>
-        <div class="logo">
-            <div class="logo-icon">📞</div>
-            <span>Craheapp</span>
-        </div>
-        <div class="user-info">
-            <span class="user-name" id="currentUserName"></span>
-            <div class="avatar" id="userAvatar"></div>
+    <div id="auth-overlay">
+        <div class="auth-card">
+            <h2>Craheapp</h2>
+            <p style="color: var(--tg-text-muted); margin-bottom: 20px;">Введите ваше имя для начала</p>
+            <input type="text" id="username-input" placeholder="Ваше имя">
+            <button class="btn-primary" onclick="login()">Войти</button>
         </div>
     </div>
 
-    <div class="tabs">
-        <div class="tab active" data-tab="contacts">Контакты</div>
-        <div class="tab" data-tab="groups">Групповые звонки</div>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>Чаты</h3>
+            </div>
+            <div class="search-bar">
+                <svg width="18" height="18" fill="var(--tg-text-muted)" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                <input type="text" placeholder="Поиск">
+            </div>
+            <div class="user-list" id="contacts-list">
+                </div>
+        </aside>
+
+        <main class="chat-main">
+            <div id="no-chat-selected" class="empty-chat">
+                <span>Выберите чат, чтобы начать общение</span>
+            </div>
+
+            <div id="chat-window" class="hidden" style="height: 100%; display: none; flex-direction: column;">
+                <header class="chat-header">
+                    <div class="chat-header-user">
+                        <div class="back-btn" onclick="closeChat()">
+                            <svg width="24" height="24" fill="white" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+                        </div>
+                        <div class="user-avatar" id="current-chat-avatar" style="width: 40px; height: 40px; font-size: 14px;"></div>
+                        <div>
+                            <div id="current-chat-name" style="font-weight: 600;"></div>
+                            <div class="status-online">в сети</div>
+                        </div>
+                    </div>
+                    <div class="chat-header-actions">
+                        <div class="call-btn-header" onclick="makeCall()">
+                            <svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+                        </div>
+                    </div>
+                </header>
+
+                <div class="messages-container" id="messages">
+                    </div>
+
+                <div class="input-area">
+                    <input type="text" id="msg-input" class="message-input" placeholder="Написать сообщение...">
+                    <button class="call-btn-header" style="background: transparent; border: none;" onclick="sendMessage()">
+                        <svg viewBox="0 0 24 24" fill="#248bcf"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </main>
     </div>
 
-    <div class="tab-content active" id="tab-contacts">
-        <div class="contacts-sidebar">
-            <div class="contacts-header">Контакты онлайн</div>
-            <div class="contacts-list" id="contactsList"></div>
-        </div>
-    </div>
-    <div class="tab-content" id="tab-groups">
-        <div class="create-group">
-            <input type="text" id="groupNameInput" placeholder="Название конференции">
-            <button id="createGroupBtn">Создать</button>
-        </div>
-        <div class="groups-list" id="groupsList"></div>
-    </div>
-</div>
+    <script>
+        const socket = io();
+        let currentUser = JSON.parse(localStorage.getItem('craheapp_user')) || null;
+        let activeChat = null;
 
-<div id="contactsOverlay" class="hidden" style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); z-index: 399;"></div>
-
-<script src="/socket.io/socket.io.js"></script>
-<script>
-    // ========== Глобальные переменные ==========
-    let socket = null;
-    let currentUser = null;
-    let callState = 'idle'; // idle, calling
-
-    // DOM элементы
-    const authContainer = document.getElementById('authContainer');
-    const appContainer = document.getElementById('appContainer');
-    const registerBtn = document.getElementById('registerBtn');
-    const contactsList = document.getElementById('contactsList');
-    const groupsList = document.getElementById('groupsList');
-    const menuBtn = document.getElementById('menuBtn');
-    const contactsOverlay = document.getElementById('contactsOverlay');
-    const tabBtns = document.querySelectorAll('.tab');
-    const tabContents = document.querySelectorAll('.tab-content');
-
-    // Вспомогательные функции
-    function showNotification(msg, isError = false) {
-        const n = document.createElement('div');
-        n.className = 'notification';
-        n.style.borderLeftColor = isError ? '#ff5252' : '#7a5cff';
-        n.textContent = msg;
-        document.body.appendChild(n);
-        setTimeout(() => n.remove(), 3000);
-    }
-
-    function closeMobileMenu() {
-        document.querySelectorAll('.contacts-sidebar, .groups-list').forEach(el => el.classList.remove('open'));
-        contactsOverlay.classList.add('hidden');
-    }
-    function openMobileMenu() {
-        if (window.innerWidth <= 768) {
-            const activeTab = document.querySelector('.tab.active').dataset.tab;
-            const target = activeTab === 'contacts' ? document.querySelector('#tab-contacts .contacts-sidebar') : document.querySelector('#tab-groups .groups-list');
-            if (target) target.classList.add('open');
-            contactsOverlay.classList.remove('hidden');
-        }
-    }
-    menuBtn?.addEventListener('click', openMobileMenu);
-    contactsOverlay.addEventListener('click', closeMobileMenu);
-    window.addEventListener('resize', () => { if (window.innerWidth > 768) closeMobileMenu(); });
-
-    // Переключение вкладок
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tabId = btn.dataset.tab;
-            tabBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            tabContents.forEach(tc => tc.classList.remove('active'));
-            document.getElementById(`tab-${tabId}`).classList.add('active');
-            closeMobileMenu();
-            if (tabId === 'groups') loadGroups();
-        });
-    });
-
-    // Регистрация
-    registerBtn.addEventListener('click', async () => {
-        const username = document.getElementById('regUsername').value.trim();
-        const userId = document.getElementById('regUserId').value.trim();
-        if (!username || !userId) return showNotification('Заполните все поля', true);
-        currentUser = { id: userId, name: username };
-        const resp = await fetch('/api/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, userId })
-        });
-        if (resp.ok) {
+        // Логика входа
+        function login() {
+            const name = document.getElementById('username-input').value;
+            if (!name) return;
+            
+            currentUser = {
+                id: 'u_' + Math.random().toString(36).substr(2, 9),
+                name: name
+            };
+            
             localStorage.setItem('craheapp_user', JSON.stringify(currentUser));
-            socket = io({ transports: ['websocket', 'polling'] });
-            socket.on('connect', () => {
-                socket.emit('register', { userId, username });
-            });
-            setupSocketListeners();
-            authContainer.classList.add('hidden');
-            appContainer.classList.remove('hidden');
-            document.getElementById('currentUserName').textContent = username;
-            document.getElementById('userAvatar').textContent = username[0].toUpperCase();
-        } else {
-            showNotification('Ошибка регистрации', true);
+            document.getElementById('auth-overlay').style.display = 'none';
+            initApp();
         }
-    });
 
-    // Настройка сокетов
-    function setupSocketListeners() {
+        if (currentUser) {
+            document.getElementById('auth-overlay').style.display = 'none';
+            initApp();
+        }
+
+        function initApp() {
+            socket.emit('call:register', { userId: currentUser.id, username: currentUser.name });
+            
+            // Запрос списка пользователей
+            socket.emit('get-users');
+        }
+
         socket.on('user-list', (users) => {
-            renderContacts(users.filter(u => u.userId !== currentUser.id));
+            const listEl = document.getElementById('contacts-list');
+            listEl.innerHTML = '';
+            
+            users.filter(u => u.userId !== currentUser.id).forEach(user => {
+                const div = document.createElement('div');
+                div.className = 'user-item';
+                div.innerHTML = `
+                    <div class="user-avatar">${user.username[0]}</div>
+                    <div class="user-info-brief">
+                        <h4>${user.username}</h4>
+                        <div class="status-online">в сети</div>
+                    </div>
+                `;
+                div.onclick = () => openChat(user);
+                listEl.appendChild(div);
+            });
         });
-        socket.on('group-list', (groups) => {
-            renderGroups(groups);
-        });
-        socket.on('incoming-call', (data) => {
-            if (callState !== 'idle') {
-                socket.emit('call:reject', { fromId: data.from });
-                return;
+
+        function openChat(user) {
+            activeChat = user;
+            document.getElementById('no-chat-selected').style.display = 'none';
+            const chatWindow = document.getElementById('chat-window');
+            chatWindow.style.display = 'flex';
+            chatWindow.classList.remove('hidden');
+            
+            document.getElementById('current-chat-name').innerText = user.username;
+            document.getElementById('current-chat-avatar').innerText = user.username[0];
+            
+            if (window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.add('hidden');
             }
-            showNotification(`Входящий видеозвонок от ${data.fromName}`, false);
-            localStorage.setItem('craheapp_call', JSON.stringify({
-                type: 'personal',
-                targetId: data.from,
-                targetName: data.fromName,
-                isVideo: true,
-                isIncoming: true,
+        }
+
+        function closeChat() {
+            document.getElementById('sidebar').classList.remove('hidden');
+            document.getElementById('chat-window').style.display = 'none';
+        }
+
+        // Логика звонка (Связь с call.html)
+        function makeCall() {
+            if (!activeChat) return;
+
+            const callParams = {
+                type: 'private',
+                targetUserId: activeChat.userId,
+                targetUsername: activeChat.username,
                 myUserId: currentUser.id,
-                myUsername: currentUser.name
-            }));
-            window.open('/call.html', '_blank');
-        });
-        socket.on('group-created', (data) => {
-            loadGroups();
-            showNotification(`Группа "${data.groupName}" создана`);
-        });
-        socket.on('admitted-to-group', (data) => {
-            showNotification(`Вас пустили в группу "${data.groupName}"`);
-        });
-        socket.on('rejected-from-group', () => {
-            showNotification('Вас не пустили в группу', true);
-        });
-        socket.on('waiting-list-update', (data) => {
-            // опционально
-        });
-    }
+                myUsername: currentUser.name,
+                isIncoming: false
+            };
 
-    // Рендер контактов (только видеозвонки)
-    function renderContacts(users) {
-        if (!users.length) {
-            contactsList.innerHTML = '<div style="padding:20px;text-align:center;color:#8b949e;">Нет пользователей онлайн</div>';
-            return;
+            localStorage.setItem('craheapp_call', JSON.stringify(callParams));
+            window.open('/call.html', '_blank', 'width=400,height=700');
         }
-        contactsList.innerHTML = users.map(u => `
-            <div class="contact-item" data-user-id="${u.userId}">
-                <div class="contact-avatar">${escapeHtml(u.username[0].toUpperCase())}</div>
-                <div class="contact-info">
-                    <div class="contact-name">${escapeHtml(u.username)}</div>
-                    <div class="contact-status">● Онлайн</div>
-                </div>
-                <div class="call-buttons">
-                    <button class="call-icon" onclick="startVideoCall('${u.userId}', '${escapeHtml(u.username)}')">📹</button>
-                </div>
-            </div>
-        `).join('');
-    }
 
-    // Начать видеозвонок
-    window.startVideoCall = (targetId, targetName) => {
-        if (callState !== 'idle') {
-            showNotification('Уже есть активный звонок', true);
-            return;
+        // Входящий звонок
+        socket.on('call:request', (data) => {
+            const callParams = {
+                type: 'private',
+                fromUserId: data.from,
+                fromUsername: data.fromName,
+                myUserId: currentUser.id,
+                myUsername: currentUser.name,
+                isIncoming: true
+            };
+
+            localStorage.setItem('craheapp_call', JSON.stringify(callParams));
+            window.open('/call.html', '_blank', 'width=400,height=700');
+        });
+
+        function sendMessage() {
+            const input = document.getElementById('msg-input');
+            const text = input.value;
+            if (!text || !activeChat) return;
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message msg-out';
+            msgDiv.innerText = text;
+            document.getElementById('messages').appendChild(msgDiv);
+            input.value = '';
+            
+            // Здесь должна быть socket.emit('chat:message', ...)
         }
-        callState = 'calling';
-        localStorage.setItem('craheapp_call', JSON.stringify({
-            type: 'personal',
-            targetId: targetId,
-            targetName: targetName,
-            isVideo: true,
-            isIncoming: false,
-            myUserId: currentUser.id,
-            myUsername: currentUser.name
-        }));
-        window.open('/call.html', '_blank');
-        socket.emit('call:start', { targetId, callType: 'video' });
-        // Сброс состояния через таймаут (на случай если окно закрылось)
-        setTimeout(() => {
-            if (callState === 'calling') callState = 'idle';
-        }, 5000);
-    };
-
-    // Рендер групп
-    function renderGroups(groups) {
-        if (!groups.length) {
-            groupsList.innerHTML = '<div style="padding:20px;text-align:center;color:#8b949e;">Нет активных конференций</div>';
-            return;
-        }
-        groupsList.innerHTML = groups.map(g => `
-            <div class="group-item">
-                <div class="group-avatar">👥</div>
-                <div class="group-info">
-                    <div class="group-name">${escapeHtml(g.name)}</div>
-                    <div class="contact-status">Участников: ${g.participants}</div>
-                </div>
-                <button class="call-icon" onclick="joinGroup('${g.groupId}', '${escapeHtml(g.name)}')">🔊</button>
-            </div>
-        `).join('');
-    }
-
-    // Присоединиться к группе
-    window.joinGroup = (groupId, groupName) => {
-        if (callState !== 'idle') {
-            showNotification('Уже есть активный звонок', true);
-            return;
-        }
-        localStorage.setItem('craheapp_call', JSON.stringify({
-            type: 'group',
-            groupId: groupId,
-            groupName: groupName,
-            isIncoming: false,
-            myUserId: currentUser.id,
-            myUsername: currentUser.name
-        }));
-        window.open('/call.html', '_blank');
-        socket.emit('join-group-request', { groupId });
-    };
-
-    // Создание группы
-    document.getElementById('createGroupBtn').addEventListener('click', () => {
-        const name = document.getElementById('groupNameInput').value.trim();
-        if (!name) return showNotification('Введите название группы', true);
-        socket.emit('create-group', { groupName: name });
-        document.getElementById('groupNameInput').value = '';
-    });
-
-    // Загрузить список групп
-    function loadGroups() {
-        socket.emit('get-groups');
-    }
-
-    // Экранирование HTML
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
-    }
-
-    // Проверка сохранённого пользователя
-    const savedUser = localStorage.getItem('craheapp_user');
-    if (savedUser) {
-        try {
-            const user = JSON.parse(savedUser);
-            document.getElementById('regUsername').value = user.name;
-            document.getElementById('regUserId').value = user.id;
-            registerBtn.click();
-        } catch(e) {}
-    }
-</script>
+    </script>
 </body>
 </html>
