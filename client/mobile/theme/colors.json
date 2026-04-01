@@ -1,0 +1,44 @@
+{
+  "telegram": {
+    "primary": "#0088CC",
+    "primary-variant": "#006DB3",
+    "secondary": "#5DA9E7",
+    "background": "#E5E5E7",
+    "surface": "#FFFFFF",
+    "surface-variant": "#F2F2F3",
+    "on-primary": "#FFFFFF",
+    "on-secondary": "#FFFFFF",
+    "on-background": "#000000",
+    "on-surface": "#000000",
+    "error": "#F44336",
+    "success": "#4CAF50"
+  },
+  "dark": {
+    "primary": "#37A8F6",
+    "primary-variant": "#1E88E5",
+    "secondary": "#60B0F0",
+    "background": "#121212",
+    "surface": "#1E1E1E",
+    "surface-variant": "#2A2A2A",
+    "on-primary": "#000000",
+    "on-secondary": "#000000",
+    "on-background": "#FFFFFF",
+    "on-surface": "#FFFFFF",
+    "error": "#F44336",
+    "success": "#4CAF50"
+  },
+  "light": {
+    "primary": "#2196F3",
+    "primary-variant": "#1976D2",
+    "secondary": "#42A5F5",
+    "background": "#FAFAFA",
+    "surface": "#FFFFFF",
+    "surface-variant": "#F5F5F5",
+    "on-primary": "#FFFFFF",
+    "on-secondary": "#FFFFFF",
+    "on-background": "#000000",
+    "on-surface": "#000000",
+    "error": "#F44336",
+    "success": "#4CAF50"
+  }
+}

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CraneApp - Login</title>
+  <script src="../app/providers/authProvider.js"></script>
+  <script src="../../components/ui/button.js"></script>
+  <script src="../../components/ui/input.js"></script>
+</head>
+<body class="theme-telegram">
+  <div class="auth-container">
+    <div class="auth-header">
+      <img src="../../assets/images/logo-telegram.png" alt="CraneApp" class="auth-logo">
+      <h1>Welcome to CraneApp</h1>
+      <p>Secure messaging for everyone</p>
+    </div>
+    
+    <div class="auth-form">
+      <div id="login-input"></div>
+      <div id="password-input"></div>
+      <button id="login-btn" class="btn btn--primary btn--lg" style="width: 100%;">
+        Next
+      </button>
+      <div class="auth-footer">
+        <button id="register-link" class="text-link">Create Account</button>
+        <label class="auth-checkbox">
+          <input type="checkbox" id="keep-session">
+          <span>Keep me signed in</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const auth = window.AuthProvider;
+      
+      // Email input
+      const loginInput = CraneInput.create({
+        placeholder: 'Phone number or email',
+        type: 'email',
+        onChange: (value) => {
+          window.currentLogin = value;
+          updateLoginButton();
+        }
+      });
+      document.getElementById('login-input').appendChild(loginInput);
+      
+      // Password input (hidden initially)
+      const passwordInput = CraneInput.create({
+        type: 'password',
+        placeholder: 'Enter password',
+        onChange: (value) => updateLoginButton()
+      });
+      document.getElementById('password-input').appendChild(passwordInput);
+      passwordInput.style.display = 'none';
+      
+      let loginStep = 'phone'; // phone -> password -> code
+      
+      function updateLoginButton() {
+        const btn = document.getElementById('login-btn');
+        const hasLogin = window.currentLogin;
+        const hasPassword = passwordInput.querySelector('input').value;
+        
+        if (loginStep === 'phone') {
+          btn.textContent = hasLogin ? 'Next' : 'Enter phone or email';
+          btn.disabled = !hasLogin;
+        } else {
+          btn.textContent = hasPassword ? 'Sign In' : 'Enter password';
+          btn.disabled = !hasPassword;
+        }
+      }
+      
+      // Login button
+      document.getElementById('login-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('login-btn');
+        btn.classList.add('loading');
+        
+        try {
+          if (loginStep === 'phone') {
+            // Send login code
+            const result = await auth.login({ 
+              identifier: window.currentLogin 
+            });
+            if (result.success) {
+              loginStep = 'password';
+              passwordInput.style.display = 'block';
+              btn.textContent = 'Sign In';
+            }
+          } else {
+            // Final login
+            const password = passwordInput.querySelector('input').value;
+            const result = await auth.login({ 
+              identifier: window.currentLogin,
+              password 
+            });
+            if (result.success) {
+              window.location.hash = '/chats';
+            }
+          }
+        } catch (error) {
+          console.error('Login failed:', error);
+        }
+        
+        btn.classList.remove('loading');
+      });
+      
+      // Register link
+      document.getElementById('register-link').addEventListener('click', () => {
+        window.location.hash = '/auth/register';
+      });
+    });
+  </script>
+</body>
+</html>

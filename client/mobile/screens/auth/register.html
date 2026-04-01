@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Account - CraneApp</title>
+  <script src="../app/providers/authProvider.js"></script>
+  <script src="../../components/ui/button.js"></script>
+  <script src="../../components/ui/input.js"></script>
+</head>
+<body class="theme-telegram">
+  <div class="auth-container">
+    <div class="auth-header">
+      <img src="../../assets/images/logo-telegram.png" alt="CraneApp" class="auth-logo">
+      <h1>Create Account</h1>
+      <p>Enter your phone number</p>
+    </div>
+    
+    <div class="auth-form">
+      <div id="phone-input"></div>
+      <button id="send-code-btn" class="btn btn--primary btn--lg" style="width: 100%;">
+        Send Code
+      </button>
+      
+      <div class="auth-divider">
+        <span>or</span>
+      </div>
+      
+      <button id="email-register" class="btn btn--secondary btn--lg" style="width: 100%;">
+        Sign up with Email
+      </button>
+      
+      <div class="auth-footer">
+        <button id="login-link" class="text-link">Already have account? Login</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const auth = window.AuthProvider;
+      
+      const phoneInput = CraneInput.create({
+        type: 'tel',
+        placeholder: '+1 (555) 000-0000',
+        onChange: (value) => {
+          window.currentPhone = value;
+          document.getElementById('send-code-btn').disabled = !value;
+        }
+      });
+      document.getElementById('phone-input').appendChild(phoneInput);
+      
+      // Send verification code
+      document.getElementById('send-code-btn').addEventListener('click', async () => {
+        const btn = document.getElementById('send-code-btn');
+        btn.classList.add('loading');
+        
+        try {
+          const result = await auth.register({ 
+            phone: window.currentPhone 
+          });
+          if (result.success) {
+            window.location.hash = '/auth/phone';
+          }
+        } catch (error) {
+          console.error('Registration failed:', error);
+        }
+        
+        btn.classList.remove('loading');
+      });
+      
+      // Email register
+      document.getElementById('email-register').addEventListener('click', () => {
+        window.location.hash = '/auth/login';
+      });
+      
+      // Back to login
+      document.getElementById('login-link').addEventListener('click', () => {
+        window.location.hash = '/auth/login';
+      });
+    });
+  </script>
+</body>
+</html>

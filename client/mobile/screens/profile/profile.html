@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile - CraneApp</title>
+  <script src="../../app/providers/authProvider.js"></script>
+  <script src="../../components/ui/avatar.js"></script>
+  <script src="../../components/ui/toggle.js"></script>
+</head>
+<body class="theme-telegram">
+  <div class="screen-container">
+    <div class="profile-header">
+      <button class="header-menu">☰</button>
+      <div class="profile-main">
+        <div class="profile-avatar-section">
+          <div id="profile-avatar"></div>
+          <button class="avatar-edit">📎</button>
+        </div>
+        <div class="profile-info">
+          <h1 id="profile-name">John Doe</h1>
+          <div class="profile-username" id="profile-username">@johndoe</div>
+          <div class="profile-phone" id="profile-phone">+7 999 123-45-67</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="profile-stats">
+      <div class="stat-item">
+        <span class="stat-number">24</span>
+        <span class="stat-label">Chats</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number">128</span>
+        <span class="stat-label">Contacts</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-number">5.2 GB</span>
+        <span class="stat-label">Storage</span>
+      </div>
+    </div>
+    
+    <div class="profile-section">
+      <div class="section-header">
+        <h3>Bio</h3>
+      </div>
+      <p class="profile-bio" id="profile-bio">Software developer from Novokuznetsk. Love coding, gaming and coffee ☕</p>
+    </div>
+    
+    <button id="edit-profile-btn" class="btn btn--primary" style="width: 100%; margin: 16px;">
+      Edit Profile
+    </button>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const auth = window.AuthProvider;
+      
+      if (!auth.isAuth()) {
+        window.location.hash = '/auth/login';
+        return;
+      }
+      
+      // Load user data
+      const user = auth.getUser() || {
+        name: 'John Doe',
+        username: '@johndoe',
+        phone: '+7 999 123-45-67',
+        bio: 'Software developer from Novokuznetsk. Love coding, gaming and coffee ☕'
+      };
+      
+      document.getElementById('profile-avatar').innerHTML = 
+        CraneAvatar.create({ name: user.name, size: 96, verified: true }).outerHTML;
+      document.getElementById('profile-name').textContent = user.name;
+      document.getElementById('profile-username').textContent = user.username;
+      document.getElementById('profile-phone').textContent = user.phone;
+      document.getElementById('profile-bio').textContent = user.bio;
+      
+      // Edit profile
+      document.getElementById('edit-profile-btn').addEventListener('click', () => {
+        window.location.hash = '/profile/editProfile';
+      });
+      
+      // Avatar upload
+      document.querySelector('.avatar-edit').addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              document.querySelector('.avatar img')?.setAttribute('src', ev.target.result);
+            };
+            reader.readAsDataURL(file);
+          }
+        };
+        input.click();
+      });
+    });
+  </script>
+</body>
+</html>

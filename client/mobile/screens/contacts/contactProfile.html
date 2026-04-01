@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile - CraneApp</title>
+  <script src="../../app/providers/authProvider.js"></script>
+  <script src="../../components/ui/avatar.js"></script>
+  <script src="../../components/ui/toggle.js"></script>
+</head>
+<body class="theme-telegram">
+  <div class="screen-container">
+    <div class="profile-header">
+      <button class="header-back">←</button>
+      <div class="profile-main">
+        <div class="profile-avatar-section">
+          ${CraneAvatar.create({ name: 'Alice Johnson', size: 96, online: true, verified: true }).outerHTML}
+          <button class="avatar-edit">📎</button>
+        </div>
+        <div class="profile-info">
+          <h1>Alice Johnson</h1>
+          <div class="profile-username">@alice_j</div>
+          <div class="profile-status">Last seen recently</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="profile-actions">
+      <button class="profile-action primary">
+        <span class="icon">💬</span>
+        Start Chat
+      </button>
+      <button class="profile-action">
+        <span class="icon">📞</span>
+        Voice Call
+      </button>
+      <button class="profile-action">
+        <span class="icon">📹</span>
+        Video Call
+      </button>
+      <button class="profile-action">
+        <span class="icon">📎</span>
+        Share Contact
+      </button>
+    </div>
+    
+    <div class="profile-section">
+      <div class="section-header">
+        <h3>Custom Notifications</h3>
+      </div>
+      <label class="profile-toggle">
+        ${CraneToggle.create({ checked: true }).outerHTML}
+        <span>Mute notifications</span>
+      </label>
+    </div>
+    
+    <div class="profile-section">
+      <div class="section-header">
+        <h3>Bio</h3>
+      </div>
+      <p class="profile-bio">Software developer. Love coding and coffee ☕</p>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const auth = window.AuthProvider;
+      
+      if (!auth.isAuth()) {
+        window.location.hash = '/auth/login';
+        return;
+      }
+      
+      // Profile actions
+      document.querySelectorAll('.profile-action').forEach(action => {
+        action.addEventListener('click', () => {
+          const icon = action.querySelector('.icon').textContent;
+          if (icon === '💬') {
+            window.location.hash = '/chat/1';
+          } else if (icon === '📞') {
+            window.location.hash = '/calls';
+          }
+        });
+      });
+      
+      // Toggle notifications
+      document.querySelector('.profile-toggle input').addEventListener('change', (e) => {
+        const status = e.target.checked ? 'Muted' : 'Unmuted';
+        document.querySelector('.profile-toggle span').textContent = `Notifications ${status.toLowerCase()}`;
+      });
+    });
+  </script>
+</body>
+</html>

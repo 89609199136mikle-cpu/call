@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contacts - CraneApp</title>
+  <script src="../../app/providers/authProvider.js"></script>
+  <script src="../../components/ui/avatar.js"></script>
+  <script src="../../components/ui/input.js"></script>
+</head>
+<body class="theme-telegram">
+  <div class="screen-container">
+    <div class="header">
+      <div class="header-left">
+        <button class="header-menu">☰</button>
+      </div>
+      <div class="header-title">
+        <h1>Contacts</h1>
+      </div>
+      <div class="header-right">
+        <button id="add-contact-btn" class="header-action">➕</button>
+      </div>
+    </div>
+    
+    <div class="contacts-container">
+      <div class="search-section">
+        <div id="contacts-search"></div>
+      </div>
+      
+      <div class="contacts-list" id="contacts-list">
+        <!-- Dynamic contacts -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const auth = window.AuthProvider;
+      
+      if (!auth.isAuth()) {
+        window.location.hash = '/auth/login';
+        return;
+      }
+      
+      // Search input
+      const searchInput = CraneInput.create({
+        placeholder: 'Search contacts',
+        clearable: true,
+        onChange: (value) => filterContacts(value)
+      });
+      document.getElementById('contacts-search').appendChild(searchInput);
+      
+      // Mock contacts data
+      window.contactsData = [
+        { id: 1, name: 'Alice Johnson', username: '@alice_j', phone: '+7 999 123-45-67', online: true },
+        { id: 2, name: 'Bob Wilson', username: '@bob_wilson', phone: '+7 999 987-65-43', online: false },
+        { id: 3, name: 'Carol Davis', username: '@carol_d', phone: '+7 999 555-12-34', online: true },
+        { id: 4, name: 'David Brown', username: null, phone: '+7 999 777-88-99', online: false }
+      ];
+      
+      renderContacts();
+      
+      function renderContacts(contacts = window.contactsData) {
+        const list = document.getElementById('contacts-list');
+        list.innerHTML = contacts.map(contact => `
+          <div class="contact-item" data-contact-id="${contact.id}">
+            <div class="contact-avatar">
+              ${CraneAvatar.create({ 
+                name: contact.name, 
+                size: 56, 
+                online: contact.online,
+                verified: contact.id === 1
+              }).outerHTML}
+            </div>
+            <div class="contact-info">
+              <div class="contact-name">${contact.name}</div>
+              <div class="contact-details">
+                ${contact.username ? `<span>@${contact.username}</span>` : ''}
+                <span>${contact.phone}</span>
+              </div>
+            </div>
+            <div class="contact-actions">
+              <button class="contact-start-chat">Message</button>
+            </div>
+          </div>
+        `).join('');
+        
+        // Contact actions
+        document.querySelectorAll('.contact-item').forEach(item => {
+          item.addEventListener('click', (e) => {
+            if (e.target.closest('.contact-start-chat')) {
+              const contactId = item.dataset.contactId;
+              window.location.hash = `/chat/${contactId}`;
+            }
+          });
+        });
+      }
+      
+      function filterContacts(query) {
+        const filtered = window.contactsData.filter(contact =>
+          contact.name.toLowerCase().includes(query.toLowerCase()) ||
+          contact.username?.toLowerCase().includes(query.toLowerCase()) ||
+          contact.phone.includes(query)
+        );
+        renderContacts(filtered);
+      }
+      
+      // Add contact
+      document.getElementById('add-contact-btn').addEventListener('click', () => {
+        window.CraneModal.show({
+          title: 'Add Contact',
+          content: `
+            <div id="add-contact-form">
+              <div id="contact-phone"></div>
+              <div id="contact-username"></div>
+            </div>
+          `,
+          primaryBtn: { 
+            label: 'Add', 
+            onClick: () => {
+              console.log('Add contact');
+            }
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>

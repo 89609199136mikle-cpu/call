@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Group - CraneApp</title>
+  <script src="../../app/providers/authProvider.js"></script>
+  <script src="../../components/ui/avatar.js"></script>
+  <script src="../../components/ui/input.js"></script>
+</head>
+<body class="theme-telegram">
+  <div class="screen-container">
+    <div class="header">
+      <button class="header-back">←</button>
+      <div class="header-title">New Group</div>
+      <button id="create-group-btn" class="btn btn--primary" disabled>Create</button>
+    </div>
+    
+    <div class="create-group-container">
+      <div class="group-avatar-section">
+        <div class="avatar-upload">
+          ${CraneAvatar.create({ name: 'Group', size: 80 }).outerHTML}
+          <button class="avatar-edit">📎</button>
+        </div>
+        <p>Add group photo</p>
+      </div>
+      
+      <div id="group-name-input"></div>
+      
+      <div class="section-title">Add members</div>
+      <div class="contacts-list" id="contacts-list">
+        <!-- Dynamic contacts -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const groupNameInput = CraneInput.create({
+        placeholder: 'Group name',
+        onChange: (value) => {
+          window.groupName = value;
+          updateCreateButton();
+        }
+      });
+      document.getElementById('group-name-input').appendChild(groupNameInput);
+      
+      // Mock contacts
+      const contacts = [
+        { id: 1, name: 'Alice Johnson', selected: false },
+        { id: 2, name: 'Bob Wilson', selected: false },
+        { id: 3, name: 'Carol Davis', selected: false }
+      ];
+      
+      const list = document.getElementById('contacts-list');
+      list.innerHTML = contacts.map(contact => `
+        <div class="contact-item" data-contact-id="${contact.id}">
+          <div class="contact-avatar">
+            ${CraneAvatar.create({ name: contact.name, size: 48 }).outerHTML}
+          </div>
+          <div class="contact-info">
+            <span class="contact-name">${contact.name}</span>
+          </div>
+          <div class="contact-checkbox">☐</div>
+        </div>
+      `).join('');
+      
+      // Contact selection
+      list.querySelectorAll('.contact-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const id = parseInt(item.dataset.contactId);
+          const contact = contacts.find(c => c.id === id);
+          contact.selected = !contact.selected;
+          item.querySelector('.contact-checkbox').textContent = 
+            contact.selected ? '☑' : '☐';
+          updateCreateButton();
+        });
+      });
+      
+      function updateCreateButton() {
+        const hasName = window.groupName && window.groupName.trim();
+        const selectedCount = contacts.filter(c => c.selected).length;
+        const btn = document.getElementById('create-group-btn');
+        btn.disabled = !(hasName && selectedCount > 0);
+      }
+      
+      // Create group
+      document.getElementById('create-group-btn').addEventListener('click', () => {
+        console.log('Create group:', {
+          name: window.groupName,
+          members: contacts.filter(c => c.selected).map(c => c.id)
+        });
+        window.location.hash = '/chats';
+      });
+    });
+  </script>
+</body>
+</html>

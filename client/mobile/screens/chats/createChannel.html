@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Channel - CraneApp</title>
+  <script src="../../app/providers/authProvider.js"></script>
+  <script src="../../components/ui/input.js"></script>
+</head>
+<body class="theme-telegram">
+  <div class="screen-container">
+    <div class="header">
+      <button class="header-back">←</button>
+      <div class="header-title">New Channel</div>
+      <button id="create-channel-btn" class="btn btn--primary" disabled>Create</button>
+    </div>
+    
+    <div class="create-channel-container">
+      <div class="channel-avatar-section">
+        <div class="avatar-upload">
+          ${CraneAvatar.create({ name: 'Channel', size: 80, type: 'channel' }).outerHTML}
+          <button class="avatar-edit">📎</button>
+        </div>
+        <p>Add channel photo</p>
+      </div>
+      
+      <div id="channel-name-input"></div>
+      <div id="channel-desc-input"></div>
+      
+      <label class="channel-privacy">
+        <input type="radio" name="privacy" value="public" checked>
+        <span>Public Channel</span>
+        <small>Anyone can join via link</small>
+      </label>
+      
+      <label class="channel-privacy">
+        <input type="radio" name="privacy" value="private">
+        <span>Private Channel</span>
+        <small>Only invited users</small>
+      </label>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const nameInput = CraneInput.create({
+        placeholder: 'Channel name',
+        onChange: (value) => {
+          window.channelName = value;
+          updateCreateButton();
+        }
+      });
+      document.getElementById('channel-name-input').appendChild(nameInput);
+      
+      const descInput = CraneInput.create({
+        type: 'textarea',
+        placeholder: 'Description (optional)'
+      });
+      document.getElementById('channel-desc-input').appendChild(descInput);
+      
+      function updateCreateButton() {
+        const hasName = window.channelName && window.channelName.trim();
+        document.getElementById('create-channel-btn').disabled = !hasName;
+      }
+      
+      document.getElementById('create-channel-btn').addEventListener('click', () => {
+        console.log('Create channel:', {
+          name: window.channelName,
+          description: descInput.querySelector('textarea').value,
+          privacy: document.querySelector('input[name="privacy"]:checked').value
+        });
+        window.location.hash = '/chats';
+      });
+    });
+  </script>
+</body>
+</html>

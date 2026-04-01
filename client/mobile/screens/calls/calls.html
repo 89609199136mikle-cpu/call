@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calls - CraneApp</title>
+  <script src="../../app/providers/authProvider.js"></script>
+  <script src="../../components/ui/avatar.js"></script>
+  <script src="../../components/ui/button.js"></script>
+</head>
+<body class="theme-telegram">
+  <div class="screen-container">
+    <div class="header">
+      <div class="header-left">
+        <button class="header-menu">☰</button>
+      </div>
+      <div class="header-title">
+        <h1>Calls</h1>
+      </div>
+      <div class="header-right">
+        <button class="header-action">🔍</button>
+      </div>
+    </div>
+    
+    <div class="calls-container">
+      <div class="call-tabs">
+        <button class="tab-btn active" data-tab="recent">Recent</button>
+        <button class="tab-btn" data-tab="cleared">Cleared</button>
+      </div>
+      
+      <div class="call-list" id="call-list">
+        <!-- Dynamic calls -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const auth = window.AuthProvider;
+      
+      if (!auth.isAuth()) {
+        window.location.hash = '/auth/login';
+        return;
+      }
+      
+      // Mock calls data
+      window.callsData = [
+        { id: 1, contact: 'Alice Johnson', type: 'video', time: 'Today, 14:30', duration: '00:45', outgoing: true },
+        { id: 2, contact: 'Bob Wilson', type: 'voice', time: 'Today, 10:15', duration: '02:13', incoming: true, missed: true },
+        { id: 3, contact: 'Team Project', type: 'voice', time: 'Yesterday', duration: '01:22', group: true },
+        { id: 4, contact: 'Carol Davis', type: 'video', time: 'Mar 10', duration: '00:58', outgoing: true }
+      ];
+      
+      renderCalls();
+      
+      // Tab switching
+      document.querySelectorAll('.tab-btn').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelector('.tab-btn.active')?.classList.remove('active');
+          tab.classList.add('active');
+          renderCalls();
+        });
+      });
+      
+      function renderCalls() {
+        const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+        const list = document.getElementById('call-list');
+        
+        const calls = activeTab === 'recent' ? window.callsData : [];
+        list.innerHTML = calls.map(call => `
+          <div class="call-item" data-call-id="${call.id}">
+            <div class="call-avatar">
+              ${CraneAvatar.create({ 
+                name: call.contact, 
+                size: 56, 
+                type: call.group ? 'group' : 'user' 
+              }).outerHTML}
+            </div>
+            <div class="call-info">
+              <div class="call-header">
+                <span class="call-contact">${call.contact}</span>
+                <span class="call-time">${call.time}</span>
+              </div>
+              <div class="call-details">
+                <span class="call-type ${call.type}">${call.type.toUpperCase()}</span>
+                ${call.duration ? `<span class="call-duration">${call.duration}</span>` : ''}
+                ${call.missed ? '<span class="call-status missed">Missed</span>' : ''}
+              </div>
+            </div>
+            <div class="call-actions">
+              <button class="call-action video-call">📹</button>
+              <button class="call-action voice-call">📞</button>
+            </div>
+          </div>
+        `).join('');
+        
+        // Call actions
+        document.querySelectorAll('.call-item').forEach(item => {
+          item.querySelectorAll('.call-action').forEach(btn => {
+            btn.addEventListener('click', () => {
+              window.location.hash = `/call/${item.dataset.callId}`;
+            });
+          });
+        });
+      }
+    });
+  </script>
+</body>
+</html>

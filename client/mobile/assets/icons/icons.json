@@ -1,0 +1,48 @@
+{
+  "icons": {
+    "chat": "💬",
+    "contacts": "👥", 
+    "calls": "📞",
+    "profile": "👤",
+    "settings": "⚙️",
+    "search": "🔍",
+    "menu": "☰",
+    "back": "←",
+    "send": "➤",
+    "attach": "📎",
+    "emoji": "😊",
+    "camera": "📷",
+    "gallery": "🖼️",
+    "voice": "🎤",
+    "video": "🎥",
+    "file": "📄",
+    "location": "📍",
+    "contact": "👤",
+    "mute": "🔕",
+    "pin": "📌",
+    "delete": "🗑️",
+    "edit": "✏️",
+    "call": "📞",
+    "video-call": "📹",
+    "online": "🟢",
+    "typing": "💭",
+    "bot": "🤖",
+    "verified": "✅",
+    "group": "👥",
+    "channel": "📢",
+    "private": "💬"
+  },
+  "sizes": {
+    "xs": 16,
+    "sm": 20,
+    "md": 24,
+    "lg": 32,
+    "xl": 48
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "platform": "mobile-web",
+    "theme": "telegram",
+    "license": "MIT"
+  }
+}

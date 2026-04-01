@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Language - CraneApp</title>
+</head>
+<body class="theme-telegram">
+  <div class="screen-container">
+    <div class="header">
+      <button class="header-back">←</button>
+      <div class="header-title">Language</div>
+    </div>
+    
+    <div class="settings-container">
+      <div class="language-selector">
+        <div class="language-item active">
+          <span>English (US)</span>
+          <span class="language-flag">🇺🇸</span>
+        </div>
+        <div class="language-item">
+          <span>Русский</span>
+          <span class="language-flag">🇷🇺</span>
+        </div>
+        <div class="language-item">
+          <span>Español</span>
+          <span class="language-flag">🇪🇸</span>
+        </div>
+        <div class="language-item">
+          <span>Français</span>
+          <span class="language-flag">🇫🇷</span>
+        </div>
+      </div>
+      
+      <div class="settings-section">
+        <label class="settings-toggle">
+          <input type="checkbox">
+          <span>Use device language</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.language-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelector('.language-item.active')?.classList.remove('active');
+        item.classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>

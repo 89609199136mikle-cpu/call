@@ -1,0 +1,60 @@
+{
+  "stickerPacks": [
+    {
+      "id": "welcome",
+      "title": "Welcome Pack",
+      "author": "CraneApp Team",
+      "emoji": "🎉",
+      "stickers": [
+        "/assets/stickers/welcome-1.webp",
+        "/assets/stickers/welcome-2.webp",
+        "/assets/stickers/welcome-3.webp"
+      ],
+      "isPremium": false
+    },
+    {
+      "id": "emotions",
+      "title": "Emotions",
+      "author": "Telegram Team", 
+      "emoji": "😊",
+      "stickers": [
+        "/assets/stickers/happy.webp",
+        "/assets/stickers/sad.webp",
+        "/assets/stickers/love.webp",
+        "/assets/stickers/angry.webp"
+      ],
+      "isPremium": false
+    },
+    {
+      "id": "animals",
+      "title": "Cute Animals",
+      "author": "CraneApp",
+      "emoji": "🐱",
+      "stickers": [
+        "/assets/stickers/cat.webp",
+        "/assets/stickers/dog.webp",
+        "/assets/stickers/bear.webp",
+        "/assets/stickers/fox.webp"
+      ],
+      "isPremium": true
+    }
+  ],
+  "recent": [],
+  "favorites": [],
+  "trending": [
+    {
+      "id": "funny",
+      "title": "Funny Memes",
+      "count": 12456,
+      "emoji": "😂"
+    }
+  ],
+  "metadata": {
+    "version": "1.0",
+    "totalPacks": 3,
+    "totalStickers": 15,
+    "format": "webp",
+    "size": "512x512",
+    "uploadLimit": 120
+  }
+}

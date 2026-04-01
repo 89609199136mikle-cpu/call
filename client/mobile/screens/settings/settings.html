@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings - CraneApp</title>
+  <script src="../../app/providers/authProvider.js"></script>
+  <script src="../../components/ui/toggle.js"></script>
+</head>
+<body class="theme-telegram">
+  <div class="screen-container">
+    <div class="header">
+      <div class="header-left">
+        <button class="header-menu">☰</button>
+      </div>
+      <div class="header-title">
+        <h1>Settings</h1>
+      </div>
+    </div>
+    
+    <div class="settings-container">
+      <div class="settings-section">
+        <h3>Notifications</h3>
+        <a href="#/settings/notifications" class="settings-item">
+          <span>Notifications</span>
+          <span class="settings-chevron">></span>
+        </a>
+      </div>
+      
+      <div class="settings-section">
+        <h3>Appearance</h3>
+        <a href="#/settings/appearance" class="settings-item">
+          <span>Chat Background</span>
+          <span class="settings-chevron">></span>
+        </a>
+        <a href="#/settings/appearance" class="settings-item">
+          <span>Theme</span>
+          <span class="settings-chevron">></span>
+        </a>
+      </div>
+      
+      <div class="settings-section">
+        <h3>Privacy</h3>
+        <a href="#/settings/privacy" class="settings-item">
+          <span>Privacy & Security</span>
+          <span class="settings-chevron">></span>
+        </a>
+      </div>
+      
+      <div class="settings-section">
+        <h3>Data & Storage</h3>
+        <a href="#/settings/dataStorage" class="settings-item">
+          <span>Data & Storage</span>
+          <span class="settings-chevron">></span>
+        </a>
+      </div>
+      
+      <div class="settings-section">
+        <h3>Language</h3>
+        <a href="#/settings/language" class="settings-item">
+          <span>Language</span>
+          <span class="settings-chevron">></span>
+        </a>
+      </div>
+      
+      <div class="settings-section">
+        <h3>Other</h3>
+        <a href="#/settings/powerSaving" class="settings-item">
+          <span>Power Saving</span>
+          <span class="settings-chevron">></span>
+        </a>
+        <a href="#/settings/features" class="settings-item">
+          <span>Experimental Features</span>
+          <span class="settings-chevron">></span>
+        </a>
+      </div>
+      
+      <div style="padding: 20px;">
+        <button id="logout-btn" class="btn btn--destructive" style="width: 100%;">
+          Log Out
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const auth = window.AuthProvider;
+      
+      if (!auth.isAuth()) {
+        window.location.hash = '/auth/login';
+        return;
+      }
+      
+      // Navigation links
+      document.querySelectorAll('.settings-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          const href = item.getAttribute('href');
+          window.location.hash = href;
+        });
+      });
+      
+      // Logout
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        if (confirm('Log out from all devices?')) {
+          auth.logout();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

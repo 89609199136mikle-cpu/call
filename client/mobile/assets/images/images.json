@@ -1,0 +1,50 @@
+{
+  "images": {
+    "logo": {
+      "light": "/assets/images/logo-light.png",
+      "dark": "/assets/images/logo-dark.png",
+      "telegram": "/assets/images/logo-telegram.png"
+    },
+    "avatars": {
+      "default": {
+        "male": "/assets/images/avatar-male.png",
+        "female": "/assets/images/avatar-female.png",
+        "bot": "/assets/images/avatar-bot.png"
+      },
+      "placeholder": "/assets/images/avatar-placeholder.png"
+    },
+    "backgrounds": {
+      "chat": {
+        "default": "/assets/images/chat-bg-default.jpg",
+        "dark": "/assets/images/chat-bg-dark.jpg",
+        "light": "/assets/images/chat-bg-light.jpg"
+      }
+    },
+    "patterns": {
+      "dots": "/assets/images/pattern-dots.png",
+      "waves": "/assets/images/pattern-waves.png",
+      "abstract": "/assets/images/pattern-abstract.png"
+    },
+    "splash": {
+      "loading": "/assets/images/splash-loading.gif"
+    },
+    "onboarding": [
+      "/assets/images/onboarding-1.png",
+      "/assets/images/onboarding-2.png", 
+      "/assets/images/onboarding-3.png"
+    ]
+  },
+  "sizes": {
+    "avatar-sm": 40,
+    "avatar-md": 48,
+    "avatar-lg": 56,
+    "chat-bg": "cover",
+    "splash": "100vw 100vh"
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "totalSize": "2.4MB",
+    "formats": ["png", "webp", "svg"],
+    "optimized": true
+  }
+}

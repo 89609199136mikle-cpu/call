@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit Profile - CraneApp</title>
+  <script src="../../app/providers/authProvider.js"></script>
+  <script src="../../components/ui/input.js"></script>
+  <script src="../../components/ui/button.js"></script>
+</head>
+<body class="theme-telegram">
+  <div class="screen-container">
+    <div class="header">
+      <button class="header-back">←</button>
+      <div class="header-title">Edit Profile</div>
+      <button id="save-profile-btn" class="btn btn--primary" disabled>Save</button>
+    </div>
+    
+    <div class="edit-profile-container">
+      <div class="avatar-section">
+        <div id="edit-avatar"></div>
+        <button class="avatar-edit">📎 Change Photo</button>
+      </div>
+      
+      <div id="edit-name-input"></div>
+      <div id="edit-username-input"></div>
+      <div id="edit-bio-input"></div>
+      
+      <div class="section-divider"></div>
+      
+      <div class="profile-section">
+        <h3>Notifications & Sounds</h3>
+        <label class="profile-toggle">
+          ${CraneToggle.create({ checked: false }).outerHTML}
+          <span>Mute all notifications</span>
+        </label>
+      </div>
+      
+      <div class="profile-section">
+        <h3>Privacy</h3>
+        <label class="profile-toggle">
+          ${CraneToggle.create({ checked: true }).outerHTML}
+          <span>Show phone number to contacts</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const auth = window.AuthProvider;
+      
+      if (!auth.isAuth()) {
+        window.location.hash = '/auth/login';
+        return;
+      }
+      
+      const user = auth.getUser() || {
+        name: 'John Doe',
+        username: '@johndoe',
+        bio: 'Software developer from Novokuznetsk. Love coding, gaming and coffee ☕'
+      };
+      
+      // Avatar
+      document.getElementById('edit-avatar').innerHTML = 
+        CraneAvatar.create({ name: user.name, size: 96 }).outerHTML;
+      
+      // Form inputs
+      const nameInput = CraneInput.create({
+        value: user.name,
+        placeholder: 'Name',
+        onChange: updateSaveButton
+      });
+      document.getElementById('edit-name-input').appendChild(nameInput);
+      
+      const usernameInput = CraneInput.create({
+        value: user.username,
+        placeholder: 'Username',
+        onChange: updateSaveButton
+      });
+      document.getElementById('edit-username-input').appendChild(usernameInput);
+      
+      const bioInput = CraneInput.create({
+        type: 'textarea',
+        value: user.bio,
+        placeholder: 'Bio',
+        onChange: updateSaveButton
+      });
+      document.getElementById('edit-bio-input').appendChild(bioInput);
+      
+      function updateSaveButton() {
+        const hasChanges = 
+          nameInput.querySelector('input').value !== user.name ||
+          usernameInput.querySelector('input').value !== user.username ||
+          bioInput.querySelector('textarea').value !== user.bio;
+        document.getElementById('save-profile-btn').disabled = !hasChanges;
+      }
+      
+      // Save profile
+      document.getElementById('save-profile-btn').addEventListener('click', () => {
+        const updatedUser = {
+          ...user,
+          name: nameInput.querySelector('input').value,
+          username: usernameInput.querySelector('input').value,
+          bio: bioInput.querySelector('textarea').value
+        };
+        
+        auth.getUser() ? auth.setSession(auth.getToken(), updatedUser) : null;
+        window.location.hash = '/profile';
+      });
+      
+      // Avatar change
+      document.querySelector('.avatar-edit').addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              document.querySelector('#edit-avatar .avatar-img')?.setAttribute('src', ev.target.result);
+            };
+            reader.readAsDataURL(file);
+          }
+        };
+        input.click();
+      });
+    });
+  </script>
+</body>
+</html>

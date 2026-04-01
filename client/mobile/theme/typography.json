@@ -1,0 +1,42 @@
+{
+  "fontFamily": {
+    "primary": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif",
+    "mono": "ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace"
+  },
+  "fontSize": {
+    "h1": "32px",
+    "h2": "28px", 
+    "h3": "20px",
+    "body-large": "16px",
+    "body": "14px",
+    "body-small": "12px",
+    "caption": "11px",
+    "button": "15px",
+    "chat-name": "17px",
+    "message": "15px",
+    "timestamp": "12px"
+  },
+  "fontWeight": {
+    "thin": 100,
+    "light": 300,
+    "regular": 400,
+    "medium": 500,
+    "semibold": 600,
+    "bold": 700,
+    "black": 900
+  },
+  "lineHeight": {
+    "h1": "40px",
+    "h2": "36px",
+    "h3": "28px",
+    "body": "20px",
+    "chat": "22px",
+    "button": "20px",
+    "caption": "16px"
+  },
+  "letterSpacing": {
+    "normal": "0",
+    "medium": "0.25px",
+    "wide": "0.5px"
+  }
+}

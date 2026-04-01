@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Search - CraneApp</title>
+  <script src="../../app/providers/authProvider.js"></script>
+  <script src="../../components/ui/avatar.js"></script>
+  <script src="../../components/ui/input.js"></script>
+</head>
+<body class="theme-telegram">
+  <div class="screen-container">
+    <div class="search-header">
+      <button class="header-back">←</button>
+      <div id="search-input-container"></div>
+      <button class="header-action voice-search">🎤</button>
+    </div>
+    
+    <div class="search-container">
+      <div class="search-tabs">
+        <button class="tab-btn active" data-tab="global">Global</button>
+        <button class="tab-btn" data-tab="chats">Chats</button>
+        <button class="tab-btn" data-tab="contacts">Contacts</button>
+        <button class="tab-btn" data-tab="media">Media</button>
+      </div>
+      
+      <div class="search-results" id="search-results">
+        <div class="search-empty">
+          <div class="search-empty-icon">🔍</div>
+          <h3>Search</h3>
+          <p>Search messages, users, groups and more</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const auth = window.AuthProvider;
+      
+      if (!auth.isAuth()) {
+        window.location.hash = '/auth/login';
+        return;
+      }
+      
+      // Search input
+      const searchInput = CraneInput.create({
+        placeholder: 'Search',
+        clearable: true,
+        onChange: performSearch
+      });
+      document.getElementById('search-input-container').appendChild(searchInput);
+      
+      let searchTimeout;
+      function performSearch(query) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          renderSearchResults(query);
+        }, 300);
+      }
+      
+      // Mock search data
+      window.searchData = {
+        global: [
+          { type: 'message', preview: 'Looking for restaurants nearby', contact: 'Alice Johnson', time: '14:30' },
+          { type: 'user', name: 'Bob Wilson', username: '@bob_wilson', online: true },
+          { type: 'group', name: 'Team Project', members: 23, time: '2h ago' },
+          { type: 'channel', name: 'Tech News', subscribers: 12500 }
+        ],
+        chats: [
+          { type: 'chat', name: 'Alice Johnson', preview: 'See you tomorrow', unread: 2 },
+          { type: 'group', name: 'Team Project', preview: 'New task assigned' }
+        ],
+        contacts: [
+          { name: 'Carol Davis', username: '@carol_d', phone: '+7 999 555-12-34' },
+          { name: 'David Brown', phone: '+7 999 777-88-99' }
+        ],
+        media: [
+          { type: 'photo', preview: '/assets/images/sample1.jpg', from: 'Alice Johnson' },
+          { type: 'video', preview: '/assets/images/sample3.mp4', from: 'Team Project', duration: '0:45' }
+        ]
+      };
+      
+      function renderSearchResults(query) {
+        const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+        const results = document.getElementById('search-results');
+        
+        if (!query.trim()) {
+          results.innerHTML = `
+            <div class="search-empty">
+              <div class="search-empty-icon">🔍</div>
+              <h3>Search</h3>
+              <p>Search messages, users, groups and more</p>
+            </div>
+          `;
+          return;
+        }
+        
+        const data = window.searchData[activeTab] || [];
+        const filtered = data.filter(item => 
+          item.name?.toLowerCase().includes(query.toLowerCase()) ||
+          item.preview?.toLowerCase().includes(query.toLowerCase()) ||
+          item.contact?.toLowerCase().includes(query.toLowerCase())
+        );
+        
+        if (filtered.length === 0) {
+          results.innerHTML = `
+            <div class="search-empty">
+              <div class="search-empty-icon">😔</div>
+              <h3>Nothing found</h3>
+              <p>Try different keywords</p>
+            </div>
+          `;
+          return;
+        }
+        
+        results.innerHTML = filtered.map(item => {
+          switch(item.type || activeTab) {
+            case 'message':
+              return `
+                <div class="search-result message">
+                  <div class="search-result-avatar">
+                    ${CraneAvatar.create({ name: item.contact, size: 48 }).outerHTML}
+                  </div>
+                  <div class="search-result-content">
+                    <div class="search-result-header">
+                      <span class="search-result-from">${item.contact}</span>
+                      <span class="search-result-time">${item.time}</span>
+                    </div>
+                    <div class="search-result-preview">${item.preview}</div>
+                  </div>
+                </div>
+              `;
+            case 'user':
+              return `
+                <div class="search-result user">
+                  <div class="search-result-avatar">
+                    ${CraneAvatar.create({ name: item.name, size: 56, online: item.online }).outerHTML}
+                  </div>
+                  <div class="search-result-content">
+                    <div class="search-result-name">${item.name}</div>
+                    ${item.username ? `<div class="search-result-username">@${item.username}</div>` : ''}
+                  </div>
+                  <div class="search-result-actions">
+                    <button class="btn btn--primary btn--sm">Start Chat</button>
+                  </div>
+                </div>
+              `;
+            case 'photo':
+            case 'video':
+              return `
+                <div class="search-result media">
+                  <img src="${item.preview}" class="search-result-media" />
+                  <div class="search-result-overlay">
+                    ${item.duration ? `<span class="media-duration">${item.duration}</span>` : ''}
+                  </div>
+                  <div class="search-result-from">${item.from}</div>
+                </div>
+              `;
+            default:
+              return `
+                <div class="search-result">
+                  <div class="search-result-avatar">
+                    ${CraneAvatar.create({ name: item.name, size: 48 }).outerHTML}
+                  </div>
+                  <div class="search-result-content">
+                    <span class="search-result-name">${item.name}</span>
+                    ${item.members ? `<span class="search-result-meta">${item.members} members</span>` : ''}
+                    ${item.subscribers ? `<span class="search-result-meta">${item.subscribers.toLocaleString()} subscribers</span>` : ''}
+                  </div>
+                </div>
+              `;
+          }
+        }).join('');
+      }
+      
+      // Tab switching
+      document.querySelectorAll('.tab-btn').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelector('.tab-btn.active')?.classList.remove('active');
+          tab.classList.add('active');
+          const query = searchInput.querySelector('input').value;
+          if (query) renderSearchResults(query);
+        });
+      });
+      
+      // Voice search
+      document.querySelector('.voice-search').addEventListener('click', () => {
+        console.log('Voice search activated');
+      });
+    });
+  </script>
+</body>
+</html>
