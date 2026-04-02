@@ -1,106 +1,143 @@
 /**
- * CraneApp Theme Provider
- * Telegram Dark/Light/TelegramBlue themes (CSS Variables + localStorage)
+ * ================================================================================
+ * CRANEAPP — THEME PROVIDER (UI ENGINE)
+ * ================================================================================
+ * Файл: client/mobile/app/providers/themeProvider.js
+ * Назначение: Управление визуальными темами, CSS-переменными и системными стилями.
+ * ================================================================================
  */
 
 export class ThemeProvider {
-  constructor() {
-    this.currentTheme = 'telegram'; // telegram, dark, light
-    this.init();
-  }
+    constructor() {
+        // Доступные темы приложения
+        this.themes = {
+            DARK: 'dark-theme',
+            LIGHT: 'light-theme',
+            TELEGRAM: 'telegram-theme',
+            NEON: 'neon-purple-theme' // Наша фирменная тема
+        };
 
-  init() {
-    // Load saved theme
-    const savedTheme = localStorage.getItem('craneapp_theme') || 'telegram';
-    this.setTheme(savedTheme);
-    
-    // Listen for theme changes
-    window.addEventListener('theme:change', (e) => {
-      this.setTheme(e.detail.theme);
-    });
-  }
+        this.currentTheme = null;
+        this.storageKey = 'craneapp_theme_preference';
+        
+        // Слушатель системных изменений темы (Dark Mode в iOS/Android/Windows)
+        this.systemThemeMatcher = window.matchMedia('(prefers-color-scheme: dark)');
+    }
 
-  setTheme(theme) {
-    this.currentTheme = theme;
-    localStorage.setItem('craneapp_theme', theme);
-    
-    // Update CSS variables (Telegram pixel-perfect)
-    document.documentElement.style.setProperty('--bg-primary', this.getThemeVar(theme, 'bg-primary'));
-    document.documentElement.style.setProperty('--bg-secondary', this.getThemeVar(theme, 'bg-secondary'));
-    document.documentElement.style.setProperty('--bg-message-in', this.getThemeVar(theme, 'bg-message-in'));
-    document.documentElement.style.setProperty('--bg-message-out', this.getThemeVar(theme, 'bg-message-out'));
-    document.documentElement.style.setProperty('--text-primary', this.getThemeVar(theme, 'text-primary'));
-    document.documentElement.style.setProperty('--accent-primary', '#2AABEE'); // Telegram Blue
-    document.documentElement.style.setProperty('--border-default', this.getThemeVar(theme, 'border-default'));
-    
-    // Body class
-    document.body.className = `theme-${theme}`;
-    
-    // Emit change event
-    window.dispatchEvent(new CustomEvent('theme:updated', { detail: { theme } }));
-  }
+    /**
+     * Инициализация темы при запуске приложения
+     */
+    async init() {
+        console.log('[ThemeProvider] Initializing UI styles...');
+        
+        // 1. Пытаемся достать выбор пользователя из LocalStorage
+        const savedTheme = localStorage.getItem(this.storageKey);
+        
+        // 2. Если выбора нет — смотрим на системные настройки
+        if (savedTheme && Object.values(this.themes).includes(savedTheme)) {
+            this.currentTheme = savedTheme;
+        } else {
+            this.currentTheme = this.systemThemeMatcher.matches ? this.themes.NEON : this.themes.LIGHT;
+        }
 
-  getThemeVar(theme, varName) {
-    const themes = {
-      telegram: {
-        'bg-primary': '#0F0F10',
-        'bg-secondary': '#1E1F22', 
-        'bg-message-in': '#1C1D1F',
-        'bg-message-out': '#2B5278',
-        'text-primary': '#FFFFFF',
-        'border-default': '#374049'
-      },
-      dark: {
-        'bg-primary': '#000000',
-        'bg-secondary': '#0F1419',
-        'bg-message-in': '#131722',
-        'bg-message-out': '#007AFF',
-        'text-primary': '#EDEEF0',
-        'border-default': '#2A2E35'
-      },
-      light: {
-        'bg-primary': '#EFEFEF',
-        'bg-secondary': '#F5F6F7',
-        'bg-message-in': '#FFFFFF',
-        'bg-message-out': '#2AABEE',
-        'text-primary': '#000000',
-        'border-default': '#E1E5E9'
-      }
-    };
-    return themes[theme]?.[varName] || themes.telegram[varName];
-  }
+        // 3. Применяем тему к документу
+        this.applyTheme(this.currentTheme);
+        
+        // 4. Подписываемся на изменения системы (если пользователь не выбрал тему вручную)
+        this.listenToSystemChanges();
+    }
 
-  toggleTheme() {
-    const themes = ['telegram', 'dark', 'light'];
-    const currentIndex = themes.indexOf(this.currentTheme);
-    const nextTheme = themes[(currentIndex + 1) % themes.length];
-    this.setTheme(nextTheme);
-  }
+    /**
+     * Применение темы через манипуляцию классами на теге <html>
+     * и обновление мета-тегов (для цвета статус-бара на мобильных)
+     * @param {string} themeClass 
+     */
+    applyTheme(themeClass) {
+        const root = document.documentElement;
+        
+        // Удаляем все старые классы тем
+        Object.values(this.themes).forEach(t => root.classList.remove(t));
+        
+        // Добавляем новую
+        root.classList.add(themeClass);
+        this.currentTheme = themeClass;
 
-  attach(root) {
-    window.ThemeProvider = this;
-    
-    // Inject base CSS variables
-    const style = document.createElement('style');
-    style.textContent = `
-      :root {
-        --spacing-xs: 4px;
-        --spacing-sm: 8px;
-        --spacing-md: 12px;
-        --spacing-lg: 16px;
-        --spacing-xl: 24px;
-        --border-radius: 10px;
-        --border-radius-lg: 16px;
-        --font-size-sm: 12px;
-        --font-size-base: 14px;
-        --font-size-lg: 16px;
-        --font-size-xl: 17px;
-        transition: background-color 0.22s ease-out, color 0.22s ease-out;
-      }
-      * { box-sizing: border-box; }
-      body { font-family: -apple-system, SF Pro, system-ui, sans-serif; margin: 0; }
-      .mobile { max-width: 390px; margin: 0 auto; }
-    `;
-    document.head.appendChild(style);
-  }
+        // Обновляем theme-color для мобильных браузеров (цвет статус-бара)
+        this.updateMetaThemeColor();
+
+        // Сохраняем выбор
+        localStorage.setItem(this.storageKey, themeClass);
+
+        // Уведомляем систему (например, для перерисовки графиков или специфических компонентов)
+        window.dispatchEvent(new CustomEvent('theme:changed', { detail: { theme: themeClass } }));
+        
+        console.log(`[ThemeProvider] Applied: ${themeClass}`);
+    }
+
+    /**
+     * Смена темы вручную пользователем
+     */
+    setTheme(themeKey) {
+        if (this.themes[themeKey]) {
+            this.applyTheme(this.themes[themeKey]);
+        }
+    }
+
+    /**
+     * Переключение "День/Ночь"
+     */
+    toggleDarkLight() {
+        if (this.currentTheme === this.themes.LIGHT) {
+            this.applyTheme(this.themes.NEON);
+        } else {
+            this.applyTheme(this.themes.LIGHT);
+        }
+    }
+
+    /**
+     * Обновление цвета браузерного интерфейса (Chrome Android / Safari iOS)
+     */
+    updateMetaThemeColor() {
+        let color = '#0f0f18'; // Дефолт (Neon/Dark)
+        
+        if (this.currentTheme === this.themes.LIGHT) color = '#ffffff';
+        if (this.currentTheme === this.themes.TELEGRAM) color = '#242f3d';
+
+        let metaTag = document.querySelector('meta[name="theme-color"]');
+        if (!metaTag) {
+            metaTag = document.createElement('meta');
+            metaTag.name = "theme-color";
+            document.head.appendChild(metaTag);
+        }
+        metaTag.setAttribute('content', color);
+    }
+
+    /**
+     * Автоматическое следование за системой
+     */
+    listenToSystemChanges() {
+        this.systemThemeMatcher.addEventListener('change', e => {
+            // Применяем системную тему только если пользователь не зафиксировал свой выбор вручную
+            // (В данной реализации мы всегда даем приоритет системе, если не сохранен ключ)
+            if (!localStorage.getItem(this.storageKey)) {
+                const newTheme = e.matches ? this.themes.NEON : this.themes.LIGHT;
+                this.applyTheme(newTheme);
+            }
+        });
+    }
+
+    /**
+     * Геттер для получения текущего состояния (нужно для JS-логики компонентов)
+     */
+    isDark() {
+        return this.currentTheme !== this.themes.LIGHT;
+    }
+
+    /**
+     * Метод для динамического получения значения CSS-переменной
+     * @param {string} varName - например '--accent-primary'
+     */
+    getVariable(varName) {
+        return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    }
 }
