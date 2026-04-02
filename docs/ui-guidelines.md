@@ -1,44 +1,127 @@
-CraneApp UI Guidelines - Pixel-Perfect Telegram Clone (390px Mobile-First)
 ================================================================================
-Colors (Telegram 2026):
-- Primary: #2AABEE (accent/send)
-- Background: #0F0F10 (dark), #FFFFFF (light)
-- Chat BG: #111214 / #EFEFEF
-- Message In: #1C1D1F / #FFFFFF (radius 16px)
-- Message Out: #2B5278 / #2AABEE (radius 16px)
-- Sidebar: #1E1F22 / #F5F6F7
-- Text: #FFFFFF / #000000 (14-16px SF Pro)
+          CRANEAPP MESSENGER — UI/UX DESIGN GUIDELINES & DESIGN SYSTEM
+================================================================================
+Версия: 1.0.0 (Pixel Perfect Edition)
+Стиль: Dark Futuristic / Telegram + Discord Hybrid
+Цветовая схема: "Electric Amethyst & Neon Pink"
 
-Spacing: 8px grid (4px micro)
-- Padding: 12-16px sections, 8px elements
-- Margins: 4-8px gaps
-- Borders: 1px #374049 / #E1E5E9 (radius 10-16px)
+--------------------------------------------------------------------------------
+1. ЦВЕТОВАЯ ПАЛИТРА (COLOR PALETTE)
+--------------------------------------------------------------------------------
+Все цвета должны использоваться строго через CSS переменные или JSON темы.
 
-Typography:
-- Headlines: 17px bold (font-weight 600)
-- Body: 15px regular (400), 14px small
-- Time: 12px gray (#8E96A0 / #707579)
-- Font: -apple-system, SF Pro, system-ui
+1.1. Backgrounds (Фоны)
+- --bg-main: #0f0f18;          /* Глубокий полночный синий (основной фон) */
+- --bg-secondary: #1a1a2e;     /* Цвет панелей, бокового меню, карточек */
+- --bg-tertiary: #242442;      /* Цвет выделения, полей ввода, ховеров */
+- --bg-glass: rgba(26, 26, 46, 0.8); /* Эффект матового стекла (Backdrop-filter) */
 
-Components:
-- Avatar: 48px circle (#gradient blue-purple)
-- Button: 48px height, radius 10px, #2AABEE fill
-- Input: 48px, radius 10px, focus #2AABEE border
-- Message Bubble: max 70% width, 10px padding, tail 4px
-- TabBar: 56px height, icons 24px + label 10px
+1.2. Brand Colors (Брендовые цвета - Акценты)
+- --accent-primary: #7a5cff;   /* Насыщенный фиолетовый (основные кнопки) */
+- --accent-secondary: #ff5ad6; /* Неоновый розовый (дополнительные акценты) */
+- --accent-gradient: linear-gradient(135deg, #7a5cff 0%, #ff5ad6 100%);
+- --accent-glow: 0 0 15px rgba(122, 92, 255, 0.5);
 
-Animations (220ms ease-out):
-- Send: scale 0.97 + opacity
-- Menu: slide-up 8px
-- Typing: 3 dots pulse 1s
-- Reactions: pop + scale 1.2
+1.3. Status Colors (Статусы)
+- --status-online: #4ade80;    /* Ярко-зеленый */
+- --status-offline: #94a3b8;   /* Серый */
+- --status-busy: #f87171;      /* Красный */
+- --status-typing: #7a5cff;    /* Фиолетовая пульсация */
 
-Breakpoints:
-- Mobile: 390px (iPhone 14)
-- Tablet: 768px (split: sidebar 360px + chat)
-- Desktop: 1280px (3-panel: left 360 + center + right)
+1.4. Typography Colors (Текст)
+- --text-primary: #ffffff;     /* Основной текст */
+- --text-secondary: #94a3b8;   /* Подписи, даты, второстепенная информация */
+- --text-muted: #64748b;       /* Заблокированный текст, плейсхолдеры */
+- --text-link: #5ad7ff;        /* Голубой для ссылок */
 
-Dark/Light: auto-detect + manual toggle
-RTL: Ready (chat bubbles reverse)
-Accessibility: VoiceOver, high-contrast, reduced-motion
-PWA: Manifest + SW cache (offline read)
+--------------------------------------------------------------------------------
+2. ТИПОГРАФИКА (TYPOGRAPHY)
+--------------------------------------------------------------------------------
+Шрифт: 'Inter' (или системный Apple/Google Sans).
+
+- Display L: 32px / Bold / Letter-spacing: -0.02em
+- Header M: 20px / Semibold (Заголовки чатов)
+- Body L: 16px / Regular (Текст сообщений)
+- Body M: 14px / Regular (Интерфейсный текст)
+- Caption: 12px / Medium (Время, статус доставки)
+
+--------------------------------------------------------------------------------
+3. КОМПОНЕНТЫ И ИХ ПОВЕДЕНИЕ (COMPONENT SPECIFICATION)
+--------------------------------------------------------------------------------
+
+3.1. Message Bubbles (Облака сообщений)
+- Скругление (Radius): 18px.
+- У входящих: Нижний левый угол 4px (хвостик).
+- У исходящих: Нижний правый угол 4px, фон --accent-primary или градиент.
+- Отступы (Padding): 10px 14px.
+- Тень: 0 2px 5px rgba(0,0,0,0.2).
+
+3.2. Inputs (Поля ввода)
+- Background: --bg-tertiary.
+- Border: 1px solid transparent.
+- Focus State: Border 1px solid --accent-primary + Glow.
+- Анимация: Плавное расширение при фокусе (0.2s).
+
+3.3. Buttons (Кнопки)
+- Primary: --accent-gradient, белое начертание, скругление 12px.
+- Ghost: Без фона, только иконка, ховер --bg-tertiary.
+- Анимация нажатия: scale(0.95) transition 0.1s.
+
+3.4. Avatars (Аватары)
+- Форма: Круг (Border-radius 50%).
+- Размер S: 32x32 (в списках).
+- Размер M: 48x48 (в заголовке чата).
+- Размер L: 120x120 (в профиле).
+- Индикатор статуса: Кольцо вокруг аватара толщиной 2px.
+
+--------------------------------------------------------------------------------
+4. АНИМАЦИИ И ПЕРЕХОДЫ (ANIMATIONS)
+--------------------------------------------------------------------------------
+Мессенджер должен "дышать". Использовать только GPU-ускоренные свойства (transform, opacity).
+
+- Переход между экранами: Slide-in с затуханием (Duration: 0.3s, Timing: cubic-bezier(0.4, 0, 0.2, 1)).
+- Появление нового сообщения: Снизу вверх с легким отскоком (Spring animation).
+- Пульсация "Recording Voice": Масштабирование от 1.0 до 1.2 с размытием.
+- Hover Effects: Увеличение яркости (brightness) на 15%.
+
+--------------------------------------------------------------------------------
+5. СПЕЦИФИКАЦИЯ ЭКРАНОВ (SCREEN LAYOUTS)
+--------------------------------------------------------------------------------
+
+5.1. Главный экран (Chat List)
+- Верхняя панель (Header): Название приложения слева, поиск и меню справа.
+- Поиск: Раскрывается на всю ширину при клике.
+- Элемент списка: Аватар слева, далее колонка (Имя + последнее сообщение), справа время и счетчик (badge).
+- Badge (счетчик): Круг --accent-secondary, белый текст.
+
+5.2. Экран чата (Conversation)
+- Фон: Темный паттерн (Crane pattern) с прозрачностью 5%.
+- Скролл: Плавный (smooth), прилипание к низу при новых сообщениях.
+- Панель ввода: Плавающая (floating) или закрепленная, с кнопками вложений (+), микрофона и эмодзи.
+
+5.3. Звонки (Call UI - См. промпт.txt)
+- Полный экран (Fullscreen).
+- Размытый фон (Blur 20px) на основе аватара собеседника.
+- Нижняя панель управления: Круглые кнопки (Mute, Video, End Call, Settings).
+- Анимация Ringing: Аватар пульсирует концентрическими кругами.
+
+--------------------------------------------------------------------------------
+6. ПРАВИЛА АДАПТИВНОСТИ (RESPONSIVENESS)
+--------------------------------------------------------------------------------
+- Mobile (< 768px): Список чатов и само окно чата — разные экраны.
+- Desktop (> 768px): Разделение на две колонки (Master-Detail). Левая колонка 350px фиксированно.
+- Планшеты: Боковое меню сворачивается в иконки (Rail).
+
+--------------------------------------------------------------------------------
+7. ИКОНОГРАФИКА (ICONOGRAPHY)
+--------------------------------------------------------------------------------
+- Стиль: Линейные (Outline), толщина линии 1.5px - 2px.
+- Сет: Lucide Icons или кастомный SVG сет Crane.
+- Акцентные иконки: Использование градиента внутри SVG.
+
+--------------------------------------------------------------------------------
+8. ОБРАБОТКА ОШИБОК И СОСТОЯНИЙ (UX STATES)
+--------------------------------------------------------------------------------
+- Loading: Скелетон-загрузчик (Shimmer effect) вместо спиннеров.
+- Empty State: Иллюстрация в векторе (фиолетовые тона) + мотивирующий текст.
+- No Connection: Узкая полоска сверху "Waiting for network..." (оранжевая или красная).
