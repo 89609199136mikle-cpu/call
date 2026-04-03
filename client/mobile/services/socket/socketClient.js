@@ -1,83 +1,94 @@
+import { authStore } from '../../store/authStore.js';
+import { socketEvents } from './socketEvents.js';
+
 /**
- * CraneApp Socket Client
- * WebSocket connection + reconnection + heartbeats
+ * Синглтон для управления WebSocket соединением (Socket.io).
+ * Обеспечивает real-time обмен данными между клиентом и Railway.
  */
 
+const SOCKET_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:5000' 
+    : 'https://craneapp-production.up.railway.app';
+
 class SocketClient {
-  constructor() {
-    this.ws = null;
-    this.url = 'wss://socket.craneapp.com';
-    this.reconnectAttempts = 0;
-    this.maxReconnects = 5;
-    this.reconnectDelay = 1000;
-    this.isConnected = false;
-  }
-
-  connect() {
-    const token = localStorage.getItem('crane_token');
-    if (!token) return;
-
-    this.ws = new WebSocket(`${this.url}?token=${token}`);
-
-    this.ws.onopen = () => {
-      this.isConnected = true;
-      this.reconnectAttempts = 0;
-      console.log('✅ Socket connected');
-      
-      // Heartbeat
-      this.heartbeat = setInterval(() => {
-        if (this.isConnected) this.send('ping');
-      }, 30000);
-      
-      window.dispatchEvent(new CustomEvent('socket:connected'));
-    };
-
-    this.ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      this.handleEvent(data);
-    };
-
-    this.ws.onclose = () => {
-      this.isConnected = false;
-      clearInterval(this.heartbeat);
-      this.reconnect();
-    };
-
-    this.ws.onerror = (error) => {
-      console.error('Socket error:', error);
-    };
-  }
-
-  send(event, data = {}) {
-    if (this.isConnected && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ event, data }));
+    constructor() {
+        this.socket = null;
+        this.connected = false;
+        this.reconnectAttempts = 0;
     }
-  }
 
-  handleEvent(data) {
-    switch (data.event) {
-      case 'message':
-        window.dispatchEvent(new CustomEvent('socket:message', { detail: data.data }));
-        break;
-      case 'user:online':
-        window.dispatchEvent(new CustomEvent('socket:user-online', { detail: data.data }));
-        break;
-      case 'user:offline':
-        window.dispatchEvent(new CustomEvent('socket:user-offline', { detail: data.data }));
-        break;
-      case 'call:offer':
-        window.dispatchEvent(new CustomEvent('socket:call-offer', { detail: data.data }));
-        break;
-    }
-  }
+    /**
+     * Инициализация соединения с авторизацией
+     */
+    connect() {
+        const token = authStore.getToken();
+        if (!token || this.socket?.connected) return;
 
-  reconnect() {
-    if (this.reconnectAttempts < this.maxReconnects) {
-      this.reconnectAttempts++;
-      setTimeout(() => this.connect(), this.reconnectDelay * this.reconnectAttempts);
+        this.socket = io(SOCKET_URL, {
+            auth: { token },
+            reconnection: true,
+            reconnectionAttempts: 5,
+            transports: ['websocket'] // Принудительно используем WebSockets для скорости на Railway
+        });
+
+        this.setupBasicListeners();
+        socketEvents.init(this.socket); // Регистрируем обработчики бизнес-логики
     }
-  }
+
+    /**
+     * Базовые системные события
+     */
+    setupBasicListeners() {
+        this.socket.on('connect', () => {
+            this.connected = true;
+            this.reconnectAttempts = 0;
+            console.log('Craneapp: Соединение установлено');
+        });
+
+        this.socket.on('disconnect', (reason) => {
+            this.connected = false;
+            console.warn('Craneapp: Соединение разорвано:', reason);
+        });
+
+        this.socket.on('connect_error', (error) => {
+            console.error('Ошибка авторизации сокета:', error.message);
+            if (error.message === 'xhr poll error') {
+                // Логика обработки падения сервера на Railway
+            }
+        });
+    }
+
+    /**
+     * Универсальный метод отправки событий
+     * @param {string} event - Название события (например, 'chat:send')
+     * @param {Object} data - Полезная нагрузка
+     */
+    emit(event, data) {
+        if (this.socket && this.connected) {
+            this.socket.emit(event, data);
+        } else {
+            console.error(`Невозможно отправить ${event}: сокет не подключен`);
+        }
+    }
+
+    /**
+     * Принудительное закрытие (например, при Logout)
+     */
+    disconnect() {
+        if (this.socket) {
+            this.socket.disconnect();
+            this.socket = null;
+            this.connected = false;
+        }
+    }
+
+    /**
+     * Получить статус соединения
+     */
+    getStatus() {
+        return this.connected;
+    }
 }
 
-window.SocketProvider = new SocketClient();
-window.SocketProvider.connect();
+// Экспортируем единственный экземпляр (Singleton)
+export const socketClient = new SocketClient();
