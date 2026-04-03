@@ -1,106 +1,102 @@
+import { messageStore } from '../../store/messageStore.js';
+import { chatStore } from '../../store/chatStore.js';
+import { authStore } from '../../store/authStore.js';
+
 /**
- * CraneApp Socket Events Handler
- * High-level socket methods + event dispatching
+ * Обработчик входящих событий Socket.io.
+ * Распределяет данные по Store и инициирует уведомления в UI.
  */
 
-class SocketEvents {
-  constructor() {
-    this.handlers = new Map();
-    this.initEventListeners();
-  }
+export const socketEvents = {
+    /**
+     * Инициализация слушателей на объекте socket
+     * @param {Socket} socket - Экземпляр от socketClient.js
+     */
+    init(socket) {
+        if (!socket) return;
 
-  // Send message to chat
-  sendMessage(chatId, content) {
-    window.SocketProvider.send('message:send', {
-      chatId,
-      content,
-      timestamp: Date.now()
-    });
-  }
+        // --- СООБЩЕНИЯ ---
 
-  // Start call (WebRTC signaling)
-  startCall(contactId, type = 'voice') {
-    window.SocketProvider.send('call:offer', {
-      to: contactId,
-      type,
-      sdp: null // WebRTC SDP will be added later
-    });
-  }
+        // Новое входящее сообщение
+        socket.on('message:new', (message) => {
+            console.log('Craneapp: Новое сообщение', message);
+            
+            // 1. Добавляем в хранилище сообщений
+            messageStore.addMessage(message);
+            
+            // 2. Обновляем превью в списке чатов (последнее сообщение)
+            chatStore.updateLastMessage(message.chatId, message);
+            
+            // 3. Если чат не открыт — вызываем системное уведомление
+            this.handleNotification(message);
+        });
 
-  // Answer call
-  answerCall(callId, sdp) {
-    window.SocketProvider.send('call:answer', {
-      callId,
-      sdp
-    });
-  }
+        // Сообщение прочитано собеседником
+        socket.on('message:read_status', ({ chatId, messageIds }) => {
+            messageStore.markAsRead(chatId, messageIds);
+        });
 
-  // ICE candidate exchange (WebRTC)
-  sendIceCandidate(callId, candidate) {
-    window.SocketProvider.send('call:ice-candidate', {
-      callId,
-      candidate
-    });
-  }
+        // Сообщение удалено
+        socket.on('message:deleted', ({ chatId, messageId }) => {
+            messageStore.removeMessage(chatId, messageId);
+        });
 
-  // Typing indicator
-  sendTyping(chatId, isTyping) {
-    window.SocketProvider.send('typing', {
-      chatId,
-      isTyping
-    });
-  }
 
-  // Read receipts
-  sendRead(chatId, messageIds) {
-    window.SocketProvider.send('message:read', {
-      chatId,
-      messageIds
-    });
-  }
+        // --- СТАТУСЫ ---
 
-  // Register event handlers
-  on(event, callback) {
-    this.handlers.set(event, callback);
-  }
+        // Собеседник печатает
+        socket.on('chat:typing', ({ chatId, userId, username }) => {
+            chatStore.setUserTyping(chatId, userId, username);
+            
+            // Автоматически скрываем статус через 3 секунды
+            setTimeout(() => {
+                chatStore.setUserTyping(chatId, userId, null);
+            }, 3000);
+        });
 
-  // Initialize global event listeners
-  initEventListeners() {
-    // Message received
-    window.addEventListener('socket:message', (e) => {
-      const { handlers } = this;
-      handlers.get('message')?.(e.detail);
-      
-      // Dispatch to hooks
-      window.dispatchEvent(new CustomEvent('chat:message', { detail: e.detail }));
-    });
+        // Изменение статуса (Online/Offline)
+        socket.on('user:presence', ({ userId, status }) => {
+            chatStore.updateUserPresence(userId, status);
+        });
 
-    // User online/offline
-    window.addEventListener('socket:user-online', (e) => {
-      handlers.get('user:online')?.(e.detail);
-      window.dispatchEvent(new CustomEvent('user:online', { detail: e.detail }));
-    });
 
-    window.addEventListener('socket:user-offline', (e) => {
-      handlers.get('user:offline')?.(e.detail);
-      window.dispatchEvent(new CustomEvent('user:offline', { detail: e.detail }));
-    });
+        // --- ЗВОНКИ (Signaling для WebRTC) ---
 
-    // Call events
-    window.addEventListener('socket:call-offer', (e) => {
-      handlers.get('call:offer')?.(e.detail);
-      window.dispatchEvent(new CustomEvent('call:offer', { detail: e.detail }));
-    });
+        // Входящий звонок (Offer)
+        socket.on('call:incoming', (data) => {
+            // Перенаправляем на экран звонка
+            window.location.href = `../calls/call.html?callerId=${data.from}&type=${data.type}`;
+        });
 
-    window.addEventListener('socket:call-answer', (e) => {
-      handlers.get('call:answer')?.(e.detail);
-    });
 
-    // Typing indicator
-    window.addEventListener('socket:typing', (e) => {
-      handlers.get('typing')?.(e.detail);
-    });
-  }
-}
+        // --- СИСТЕМНЫЕ ---
 
-window.SocketEvents = new SocketEvents();
+        socket.on('error:auth', () => {
+            console.error('Сессия устарела. Выход...');
+            authStore.clear();
+            window.location.href = '../auth/login.html';
+        });
+    },
+
+    /**
+     * Логика уведомлений (Push или Sound)
+     */
+    handleNotification(message) {
+        const currentChatId = new URLSearchParams(window.location.search).get('id');
+        
+        // Не уведомляем, если пользователь уже в этом чате
+        if (message.chatId === currentChatId) return;
+
+        // Всплывающее уведомление (если реализовано в UI)
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(message.senderName, {
+                body: message.text,
+                icon: '../../../assets/icons/logo.png'
+            });
+        }
+        
+        // Звуковой сигнал (из sounds.json)
+        const audio = new Audio('../../../assets/sounds/new_message.mp3');
+        audio.play().catch(() => {}); // Игнорируем блокировку автоплея браузером
+    }
+};
