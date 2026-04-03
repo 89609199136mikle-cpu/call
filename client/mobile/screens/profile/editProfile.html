@@ -1,132 +1,222 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Edit Profile - CraneApp</title>
-  <script src="../../app/providers/authProvider.js"></script>
-  <script src="../../components/ui/input.js"></script>
-  <script src="../../components/ui/button.js"></script>
-</head>
-<body class="theme-telegram">
-  <div class="screen-container">
-    <div class="header">
-      <button class="header-back">←</button>
-      <div class="header-title">Edit Profile</div>
-      <button id="save-profile-btn" class="btn btn--primary" disabled>Save</button>
-    </div>
-    
-    <div class="edit-profile-container">
-      <div class="avatar-section">
-        <div id="edit-avatar"></div>
-        <button class="avatar-edit">📎 Change Photo</button>
-      </div>
-      
-      <div id="edit-name-input"></div>
-      <div id="edit-username-input"></div>
-      <div id="edit-bio-input"></div>
-      
-      <div class="section-divider"></div>
-      
-      <div class="profile-section">
-        <h3>Notifications & Sounds</h3>
-        <label class="profile-toggle">
-          ${CraneToggle.create({ checked: false }).outerHTML}
-          <span>Mute all notifications</span>
-        </label>
-      </div>
-      
-      <div class="profile-section">
-        <h3>Privacy</h3>
-        <label class="profile-toggle">
-          ${CraneToggle.create({ checked: true }).outerHTML}
-          <span>Show phone number to contacts</span>
-        </label>
-      </div>
-    </div>
-  </div>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Craneapp - Редактировать профиль</title>
+    <link rel="stylesheet" href="../../../public/styles.css">
+    <style>
+        body {
+            background-color: #0f0f1a;
+            margin: 0;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const auth = window.AuthProvider;
-      
-      if (!auth.isAuth()) {
-        window.location.hash = '/auth/login';
-        return;
-      }
-      
-      const user = auth.getUser() || {
-        name: 'John Doe',
-        username: '@johndoe',
-        bio: 'Software developer from Novokuznetsk. Love coding, gaming and coffee ☕'
-      };
-      
-      // Avatar
-      document.getElementById('edit-avatar').innerHTML = 
-        CraneAvatar.create({ name: user.name, size: 96 }).outerHTML;
-      
-      // Form inputs
-      const nameInput = CraneInput.create({
-        value: user.name,
-        placeholder: 'Name',
-        onChange: updateSaveButton
-      });
-      document.getElementById('edit-name-input').appendChild(nameInput);
-      
-      const usernameInput = CraneInput.create({
-        value: user.username,
-        placeholder: 'Username',
-        onChange: updateSaveButton
-      });
-      document.getElementById('edit-username-input').appendChild(usernameInput);
-      
-      const bioInput = CraneInput.create({
-        type: 'textarea',
-        value: user.bio,
-        placeholder: 'Bio',
-        onChange: updateSaveButton
-      });
-      document.getElementById('edit-bio-input').appendChild(bioInput);
-      
-      function updateSaveButton() {
-        const hasChanges = 
-          nameInput.querySelector('input').value !== user.name ||
-          usernameInput.querySelector('input').value !== user.username ||
-          bioInput.querySelector('textarea').value !== user.bio;
-        document.getElementById('save-profile-btn').disabled = !hasChanges;
-      }
-      
-      // Save profile
-      document.getElementById('save-profile-btn').addEventListener('click', () => {
-        const updatedUser = {
-          ...user,
-          name: nameInput.querySelector('input').value,
-          username: usernameInput.querySelector('input').value,
-          bio: bioInput.querySelector('textarea').value
+        .edit-content {
+            flex: 1;
+            padding: 80px 20px 20px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Блок смены фото */
+        .photo-edit-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .edit-avatar-preview {
+            width: 100px;
+            height: 100px;
+            border-radius: 32px;
+            background: #2b2b3d;
+            object-fit: cover;
+            border: 2px solid #7a5cff;
+            margin-bottom: 12px;
+        }
+
+        .change-photo-btn {
+            color: #7a5cff;
+            font-size: 14px;
+            font-weight: 600;
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        /* Поля ввода */
+        .input-group {
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 8px 16px;
+            margin-bottom: 20px;
+        }
+
+        .input-item {
+            display: flex;
+            flex-direction: column;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .input-item:last-child { border-bottom: none; }
+
+        .input-label {
+            font-size: 12px;
+            color: #7a5cff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .edit-field {
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 16px;
+            outline: none;
+            padding: 4px 0;
+        }
+
+        .edit-field::placeholder { color: #444; }
+
+        /* Валидация юзернейма */
+        .username-hint {
+            font-size: 11px;
+            margin-top: 6px;
+            color: #888;
+        }
+
+        .username-hint.available { color: #4cd964; }
+        .username-hint.error { color: #ff453a; }
+
+        /* Кнопка сохранения в хедере (через Header.js) */
+        #file-input { display: none; }
+
+        .save-toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #7a5cff;
+            padding: 12px 24px;
+            border-radius: 20px;
+            font-weight: 600;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 1000;
+        }
+        .save-toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+
+    <div id="header-mount"></div>
+
+    <main class="edit-content">
+        <section class="photo-edit-section">
+            <img src="https://i.pravatar.cc/300?u=me" class="edit-avatar-preview" id="avatar-preview">
+            <button class="change-photo-btn" onclick="document.getElementById('file-input').click()">Изменить фото</button>
+            <input type="file" id="file-input" accept="image/*">
+        </section>
+
+        <section class="input-group">
+            <div class="input-item">
+                <label class="input-label">Имя</label>
+                <input type="text" id="edit-name" class="edit-field" placeholder="Ваше имя" value="Dev User">
+            </div>
+            <div class="input-item">
+                <label class="input-label">О себе</label>
+                <input type="text" id="edit-bio" class="edit-field" placeholder="Расскажите о себе" value="Product Designer">
+            </div>
+        </section>
+
+        <section class="input-group">
+            <div class="input-item">
+                <label class="input-label">Имя пользователя</label>
+                <div style="display: flex; align-items: center;">
+                    <span style="color: #7a5cff; margin-right: 2px;">@</span>
+                    <input type="text" id="edit-username" class="edit-field" placeholder="username" value="crane_developer">
+                </div>
+                <div id="username-status" class="username-hint">Минимум 5 символов (a-z, 0-9)</div>
+            </div>
+        </section>
+
+        <p style="padding: 0 16px; font-size: 13px; color: #666; line-height: 1.4;">
+            Вы можете выбрать публичный юзернейм в Craneapp. Если вы это сделаете, люди смогут найти вас по этому имени и связаться с вами, не зная вашего номера телефона.
+        </p>
+    </main>
+
+    <div id="save-notification" class="save-toast">Изменения сохранены!</div>
+
+    <script type="module">
+        import { Header } from '../../components/navigation/header.js';
+
+        // 1. Инициализация хедера с кнопкой "Готово"
+        const header = new Header({
+            title: 'Изменить',
+            showBack: true,
+            onBack: () => window.history.back(),
+            actions: [
+                { 
+                    icon: '<span style="color:#7a5cff; font-weight:600; font-size:16px;">Готово</span>', 
+                    onClick: () => saveProfile() 
+                }
+            ]
+        });
+        document.getElementById('header-mount').appendChild(header.render());
+
+        // 2. Превью фото
+        const fileInput = document.getElementById('file-input');
+        const avatarPreview = document.getElementById('avatar-preview');
+
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (f) => avatarPreview.src = f.target.result;
+                reader.readAsDataURL(file);
+            }
         };
-        
-        auth.getUser() ? auth.setSession(auth.getToken(), updatedUser) : null;
-        window.location.hash = '/profile';
-      });
-      
-      // Avatar change
-      document.querySelector('.avatar-edit').addEventListener('click', () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.onchange = (e) => {
-          const file = e.target.files[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-              document.querySelector('#edit-avatar .avatar-img')?.setAttribute('src', ev.target.result);
+
+        // 3. Валидация юзернейма (имитация)
+        const usernameInput = document.getElementById('edit-username');
+        const statusHint = document.getElementById('username-status');
+
+        usernameInput.oninput = (e) => {
+            const val = e.target.value.trim();
+            if (val.length < 5) {
+                statusHint.textContent = 'Слишком коротко';
+                statusHint.className = 'username-hint error';
+            } else {
+                statusHint.textContent = `@${val} доступно`;
+                statusHint.className = 'username-hint available';
+            }
+        };
+
+        // 4. Сохранение (имитация API вызова на Railway)
+        function saveProfile() {
+            const data = {
+                name: document.getElementById('edit-name').value,
+                bio: document.getElementById('edit-bio').value,
+                username: usernameInput.value
             };
-            reader.readAsDataURL(file);
-          }
-        };
-        input.click();
-      });
-    });
-  </script>
+
+            console.log('Отправка данных на сервер:', data);
+            
+            // Показываем тост
+            const toast = document.getElementById('save-notification');
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                window.history.back();
+            }, 1500);
+        }
+    </script>
 </body>
 </html>
