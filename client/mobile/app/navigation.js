@@ -1,203 +1,195 @@
-/**
- * ================================================================================
- * CRANEAPP — NAVIGATION ENGINE (SPA ROUTER)
- * ================================================================================
- * Файл: client/mobile/app/navigation.js
- * Назначение: Управление стэком экранов, анимациями и модальными окнами.
- * ================================================================================
- */
+import { getAuthState } from '../store/authStore.js';
 
-export class Navigation {
-    constructor() {
-        this.container = null;
-        this.history = [];
-        this.routes = {
-            'login': { title: 'Вход', path: '/auth/login' },
-            'register': { title: 'Регистрация', path: '/auth/register' },
-            'chats': { title: 'Чаты', path: '/chats' },
-            'chat': { title: 'Чат', path: '/chat/:id' },
-            'profile': { title: 'Профиль', path: '/profile' },
-            'settings': { title: 'Настройки', path: '/settings' },
-            'call': { title: 'Звонок', path: '/call' }
+const ROUTES = {
+  LOGIN: '/auth/login',
+  REGISTER: '/auth/register',
+  PHONE_VERIFICATION: '/auth/phone-verification',
+  CHATS: '/chats',
+  CHAT: '/chats/:id',
+  CREATE_GROUP: '/chats/create-group',
+  CREATE_CHANNEL: '/chats/create-channel',
+  CONTACTS: '/contacts',
+  CONTACT_PROFILE: '/contacts/:id',
+  CALLS: '/calls',
+  CALL: '/calls/:id',
+  SEARCH: '/search',
+  PROFILE: '/profile',
+  EDIT_PROFILE: '/profile/edit',
+  SETTINGS: '/settings',
+  SETTINGS_APPEARANCE: '/settings/appearance',
+  SETTINGS_PRIVACY: '/settings/privacy',
+  SETTINGS_DATA: '/settings/data-storage',
+  SETTINGS_NOTIFICATIONS: '/settings/notifications',
+  SETTINGS_POWER: '/settings/power-saving',
+  SETTINGS_LANGUAGE: '/settings/language',
+  SETTINGS_FEATURES: '/settings/features',
+};
+
+class NavigationManager {
+  constructor() {
+    this.history = [];
+    this.currentRoute = null;
+    this.providers = null;
+    this.listeners = new Set();
+  }
+
+  async init(providers) {
+    this.providers = providers;
+    this._bindPopState();
+    await this._resolveInitialRoute();
+  }
+
+  _bindPopState() {
+    window.addEventListener('popstate', (event) => {
+      const route = event.state?.route || window.location.pathname;
+      this._renderRoute(route, false);
+    });
+  }
+
+  async _resolveInitialRoute() {
+    const auth = getAuthState();
+    const path = window.location.pathname;
+
+    if (!auth.isAuthenticated) {
+      await this.navigate(ROUTES.LOGIN, { replace: true });
+    } else if (path === '/' || path === '') {
+      await this.navigate(ROUTES.CHATS, { replace: true });
+    } else {
+      await this._renderRoute(path, false);
+    }
+  }
+
+  async navigate(route, options = {}) {
+    const { replace = false, params = {}, state = {} } = options;
+
+    let resolvedRoute = route;
+    for (const [key, value] of Object.entries(params)) {
+      resolvedRoute = resolvedRoute.replace(`:${key}`, value);
+    }
+
+    const fullState = { route: resolvedRoute, ...state };
+
+    if (replace) {
+      window.history.replaceState(fullState, '', resolvedRoute);
+    } else {
+      window.history.pushState(fullState, '', resolvedRoute);
+      this.history.push(resolvedRoute);
+    }
+
+    await this._renderRoute(resolvedRoute);
+  }
+
+  async goBack() {
+    if (this.history.length > 1) {
+      this.history.pop();
+      window.history.back();
+    } else {
+      await this.navigate(ROUTES.CHATS, { replace: true });
+    }
+  }
+
+  async _renderRoute(path) {
+    const root = document.getElementById('root');
+    if (!root) return;
+
+    const matchedScreen = this._matchRoute(path);
+
+    if (!matchedScreen) {
+      root.innerHTML = `<div style="color:#fff;padding:32px;text-align:center;">404 — Page not found</div>`;
+      return;
+    }
+
+    root.innerHTML = '';
+    root.setAttribute('data-route', path);
+
+    try {
+      const module = await import(matchedScreen.file);
+      if (module.render) {
+        await module.render(root, matchedScreen.params, this.providers);
+      }
+    } catch (error) {
+      console.error('[Navigation] render error:', error);
+      root.innerHTML = `<div style="color:#ff5252;padding:32px;">Failed to load screen: ${path}</div>`;
+    }
+
+    this.currentRoute = path;
+    this._notifyListeners(path);
+  }
+
+  _matchRoute(path) {
+    const screenMap = [
+      { pattern: /^\/auth\/login$/, file: '../screens/auth/login.html', params: {} },
+      { pattern: /^\/auth\/register$/, file: '../screens/auth/register.html', params: {} },
+      { pattern: /^\/auth\/phone-verification$/, file: '../screens/auth/phoneVerification.html', params: {} },
+      { pattern: /^\/chats$/, file: '../screens/chats/chats.html', params: {} },
+      { pattern: /^\/chats\/create-group$/, file: '../screens/chats/createGroup.html', params: {} },
+      { pattern: /^\/chats\/create-channel$/, file: '../screens/chats/createChannel.html', params: {} },
+      { pattern: /^\/chats\/([^/]+)$/, file: '../screens/chats/chat.html', params: (m) => ({ id: m[1] }) },
+      { pattern: /^\/contacts$/, file: '../screens/contacts/contacts.html', params: {} },
+      { pattern: /^\/contacts\/([^/]+)$/, file: '../screens/contacts/contactProfile.html', params: (m) => ({ id: m[1] }) },
+      { pattern: /^\/calls$/, file: '../screens/calls/calls.html', params: {} },
+      { pattern: /^\/calls\/([^/]+)$/, file: '../screens/calls/call.html', params: (m) => ({ id: m[1] }) },
+      { pattern: /^\/search$/, file: '../screens/search/search.html', params: {} },
+      { pattern: /^\/profile$/, file: '../screens/profile/profile.html', params: {} },
+      { pattern: /^\/profile\/edit$/, file: '../screens/profile/editProfile.html', params: {} },
+      { pattern: /^\/settings$/, file: '../screens/settings/settings.html', params: {} },
+      { pattern: /^\/settings\/appearance$/, file: '../screens/settings/appearance.html', params: {} },
+      { pattern: /^\/settings\/privacy$/, file: '../screens/settings/privacy.html', params: {} },
+      { pattern: /^\/settings\/data-storage$/, file: '../screens/settings/dataStorage.html', params: {} },
+      { pattern: /^\/settings\/notifications$/, file: '../screens/settings/notifications.html', params: {} },
+      { pattern: /^\/settings\/power-saving$/, file: '../screens/settings/powerSaving.html', params: {} },
+      { pattern: /^\/settings\/language$/, file: '../screens/settings/language.html', params: {} },
+      { pattern: /^\/settings\/features$/, file: '../screens/settings/features.html', params: {} },
+    ];
+
+    for (const screen of screenMap) {
+      const match = path.match(screen.pattern);
+      if (match) {
+        return {
+          file: screen.file,
+          params: typeof screen.params === 'function' ? screen.params(match) : screen.params,
         };
-
-        this.currentRoute = null;
-        this.isAnimating = false;
-
-        // Биндинг для событий браузера
-        window.onpopstate = (event) => this.handlePopState(event);
+      }
     }
 
-    /**
-     * Инициализация навигатора в конкретном DOM-элементе
-     * @param {HTMLElement} targetElement 
-     */
-    init(targetElement) {
-        this.container = targetElement;
-        console.log('🚀 Navigation Engine Started');
-        
-        // Определяем начальный экран на основе URL или дефолта
-        const path = window.location.pathname;
-        this.resolveRouteFromPath(path);
-    }
+    return null;
+  }
 
-    /**
-     * Основной метод перехода между экранами
-     * @param {string} routeKey - Ключ из объекта this.routes
-     * @param {Object} params - Параметры (например, chat_id)
-     * @param {boolean} pushState - Нужно ли менять URL в браузере
-     */
-    async goTo(routeKey, params = {}, pushState = true) {
-        if (this.isAnimating) return;
-        if (!this.routes[routeKey]) {
-            console.error(`Route ${routeKey} not found`);
-            return;
-        }
+  onRouteChange(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
 
-        const prevRoute = this.currentRoute;
-        this.currentRoute = routeKey;
+  _notifyListeners(route) {
+    this.listeners.forEach((fn) => fn(route));
+  }
 
-        // Формируем URL
-        let finalPath = this.routes[routeKey].path;
-        if (params.id) finalPath = finalPath.replace(':id', params.id);
-
-        if (pushState) {
-            window.history.pushState({ routeKey, params }, '', finalPath);
-        }
-
-        this.history.push({ routeKey, params });
-        
-        // Выполняем переход с анимацией
-        await this.performTransition(routeKey, params, 'forward');
-    }
-
-    /**
-     * Возврат на предыдущий экран (Back button)
-     */
-    async goBack() {
-        if (this.history.length <= 1) return;
-        
-        this.isAnimating = true;
-        this.history.pop(); // Удаляем текущий
-        const prev = this.history[this.history.length - 1];
-        
-        this.currentRoute = prev.routeKey;
-        window.history.replaceState({ routeKey: prev.routeKey, params: prev.params }, '', this.routes[prev.routeKey].path);
-
-        await this.performTransition(prev.routeKey, prev.params, 'backward');
-        this.isAnimating = false;
-    }
-
-    /**
-     * Логика анимации и рендеринга
-     */
-    async performTransition(routeKey, params, direction) {
-        this.isAnimating = true;
-
-        // Создаем новый слой экрана
-        const newScreen = document.createElement('div');
-        newScreen.className = `screen screen-${routeKey} transition-${direction}`;
-        
-        // Загружаем контент экрана (динамический импорт или генерация)
-        const content = await this.loadScreenContent(routeKey, params);
-        newScreen.innerHTML = content;
-
-        // Добавляем в контейнер
-        this.container.appendChild(newScreen);
-
-        // Ждем отрисовки для запуска анимации
-        await new Promise(resolve => requestAnimationFrame(resolve));
-        
-        const oldScreen = this.container.querySelector('.screen.active');
-        
-        if (oldScreen) {
-            oldScreen.classList.remove('active');
-            oldScreen.classList.add(direction === 'forward' ? 'exit-left' : 'exit-right');
-        }
-
-        newScreen.classList.add('active');
-
-        // Удаляем старый экран после завершения анимации (300ms согласно ui-guidelines)
-        setTimeout(() => {
-            if (oldScreen) oldScreen.remove();
-            this.isAnimating = false;
-            this.triggerLifecycle(newScreen, 'onMounted', params);
-        }, 300);
-    }
-
-    /**
-     * Имитация загрузки контента экрана
-     * В реальной сборке здесь будет вызов функций из /screens/
-     */
-    async loadScreenContent(routeKey, params) {
-        // Здесь мы будем подключать наши .html файлы или JS-генераторы
-        // Для примера возвращаем базовую структуру
-        return `
-            <div class="screen-header">
-                ${this.history.length > 1 ? '<button class="back-btn" onclick="app.navigation.goBack()">←</button>' : ''}
-                <h1>${this.routes[routeKey].title}</h1>
-            </div>
-            <div class="screen-body" id="screen-body-${routeKey}">
-                <div class="loader-container"><div class="crane-spinner"></div></div>
-            </div>
-        `;
-    }
-
-    /**
-     * Вызов методов жизненного цикла экрана
-     */
-    triggerLifecycle(element, hook, params) {
-        // Событие для конкретного экрана, чтобы он начал загружать свои данные
-        const event = new CustomEvent(`screen:${hook}`, { detail: { params, element } });
-        window.dispatchEvent(event);
-    }
-
-    /**
-     * Управление модальными окнами (Звонки, Настройки)
-     */
-    openModal(modalType, data = {}) {
-        const modalLayer = document.getElementById('modal-layer');
-        if (!modalLayer) return;
-
-        const modal = document.createElement('div');
-        modal.className = `modal-overlay modal-${modalType}`;
-        modal.innerHTML = `
-            <div class="modal-container animate-bounce-in">
-                <div class="modal-content" id="modal-content">
-                    <p>Загрузка модального окна ${modalType}...</p>
-                </div>
-                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
-            </div>
-        `;
-        
-        modalLayer.appendChild(modal);
-        this.triggerLifecycle(modal, 'onModalOpen', data);
-    }
-
-    /**
-     * Обработка кнопки "Назад" в браузере
-     */
-    handlePopState(event) {
-        if (event.state && event.state.routeKey) {
-            this.goTo(event.state.routeKey, event.state.params, false);
-        } else {
-            this.resolveRouteFromPath(window.location.pathname);
-        }
-    }
-
-    /**
-     * Парсинг URL для Deep Linking
-     */
-    resolveRouteFromPath(path) {
-        if (path === '/' || path === '/chats') {
-            this.goTo('chats');
-        } else if (path.startsWith('/chat/')) {
-            const id = path.split('/')[2];
-            this.goTo('chat', { id });
-        } else if (path === '/auth/login') {
-            this.goTo('login');
-        } else {
-            this.goTo('chats'); // Fallback
-        }
-    }
+  getCurrentRoute() {
+    return this.currentRoute;
+  }
 }
+
+const navigationManager = new NavigationManager();
+
+export async function initNavigation(providers) {
+  await navigationManager.init(providers);
+}
+
+export function navigate(route, options) {
+  return navigationManager.navigate(route, options);
+}
+
+export function goBack() {
+  return navigationManager.goBack();
+}
+
+export function getCurrentRoute() {
+  return navigationManager.getCurrentRoute();
+}
+
+export function onRouteChange(listener) {
+  return navigationManager.onRouteChange(listener);
+}
+
+export { ROUTES };
+export default navigationManager;
