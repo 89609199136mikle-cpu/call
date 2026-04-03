@@ -1,112 +1,119 @@
 /**
- * Craneapp UI: Modal Component
+ * CRANEAPP - UI COMPONENT: MODAL
  * Путь: client/mobile/components/ui/modal.js
- * Описание: Универсальный компонент модального окна с поддержкой анимаций и кастомного контента.
  */
 
 export class Modal {
     /**
-     * @param {Object} options
+     * @param {Object} options 
      * @param {string} options.title - Заголовок окна
-     * @param {string|HTMLElement} options.content - Контент окна
-     * @param {Array} options.actions - Массив кнопок [{text, type, onClick}]
-     * @param {boolean} options.closeOnOverlay - Закрывать ли при клике на фон
+     * @param {string|HTMLElement} options.content - Основной текст или HTML-узел
+     * @param {Array} options.actions - Массив кнопок: [{ text, type, onClick }]
+     * @param {boolean} options.overlayClose - Закрывать ли при клике на фон (default: true)
      */
     constructor(options = {}) {
         this.options = {
-            title: '',
+            title: 'Оповещение',
             content: '',
             actions: [],
-            closeOnOverlay: true,
+            overlayClose: true,
             ...options
         };
-        this.modalElement = null;
-        this.overlayElement = null;
+        this.overlay = null;
+        this.modal = null;
     }
 
     /**
-     * Инициализация и отображение модального окна
+     * Создание структуры модального окна в DOM
      */
-    show() {
-        // Создаем оверлей
-        this.overlayElement = document.createElement('div');
-        this.overlayElement.className = 'crane-modal-overlay animate-fade-in';
+    _create() {
+        // Создаем затемняющий фон (Overlay)
+        this.overlay = document.createElement('div');
+        this.overlay.className = 'crane-modal-overlay fade-in';
 
-        // Создаем контейнер окна
-        this.modalElement = document.createElement('div');
-        this.modalElement.className = 'crane-modal-window animate-slide-up';
-        
-        this.modalElement.innerHTML = `
-            <div class="modal-header">
-                <h3 class="modal-title">${this.options.title}</h3>
-                <button class="modal-close-icon" aria-label="Close">&times;</button>
-            </div>
-            <div class="modal-body"></div>
-            <div class="modal-footer"></div>
+        // Создаем само окно
+        this.modal = document.createElement('div');
+        this.modal.className = 'crane-modal-window scale-up';
+
+        // Шапка окна
+        const header = document.createElement('div');
+        header.className = 'modal-header';
+        header.innerHTML = `
+            <span class="modal-title">${this.options.title}</span>
+            <button class="modal-close-x">&times;</button>
         `;
 
-        // Вставляем контент
-        const body = this.modalElement.querySelector('.modal-body');
+        // Тело окна
+        const body = document.createElement('div');
+        body.className = 'modal-body';
         if (this.options.content instanceof HTMLElement) {
             body.appendChild(this.options.content);
         } else {
-            body.innerHTML = this.options.content;
+            body.innerHTML = `<p>${this.options.content}</p>`;
         }
 
-        // Рендерим кнопки действий
-        const footer = this.modalElement.querySelector('.modal-footer');
+        // Подвал (Кнопки действий)
+        const footer = document.createElement('div');
+        footer.className = 'modal-footer';
+
+        if (this.options.actions.length === 0) {
+            // Если кнопок нет, добавляем дефолтную "ОК"
+            this.options.actions.push({
+                text: 'Понятно',
+                type: 'primary',
+                onClick: (m) => m.close()
+            });
+        }
+
         this.options.actions.forEach(action => {
             const btn = document.createElement('button');
             btn.className = `modal-btn btn-${action.type || 'secondary'}`;
             btn.textContent = action.text;
-            btn.onclick = () => {
-                if (action.onClick) action.onClick(this);
-                else this.close();
-            };
+            btn.onclick = () => action.onClick(this);
             footer.appendChild(btn);
         });
 
-        // Добавляем в DOM
-        this.overlayElement.appendChild(this.modalElement);
-        document.body.appendChild(this.overlayElement);
+        // Сборка
+        this.modal.appendChild(header);
+        this.modal.appendChild(body);
+        this.modal.appendChild(footer);
+        this.overlay.appendChild(this.modal);
 
-        this._bindEvents();
+        // События закрытия
+        header.querySelector('.modal-close-x').onclick = () => this.close();
+        if (this.options.overlayClose) {
+            this.overlay.onclick = (e) => {
+                if (e.target === this.overlay) this.close();
+            };
+        }
     }
 
     /**
-     * Закрытие окна с удалением из DOM
+     * Показать окно
      */
-    close() {
-        if (!this.overlayElement) return;
-
-        // Добавляем класс для обратной анимации
-        this.modalElement.classList.add('animate-exit');
-        this.overlayElement.classList.add('fade-out');
-
-        setTimeout(() => {
-            if (this.overlayElement && this.overlayElement.parentNode) {
-                document.body.removeChild(this.overlayElement);
-            }
-            this.modalElement = null;
-            this.overlayElement = null;
-        }, 300); // Тайминг соответствует CSS анимации
+    show() {
+        if (!this.overlay) this._create();
+        document.body.appendChild(this.overlay);
+        document.body.style.overflow = 'hidden'; // Блокируем скролл фона
     }
 
-    _bindEvents() {
-        // Кнопка закрытия (крестик)
-        this.modalElement.querySelector('.modal-close-icon').onclick = () => this.close();
+    /**
+     * Скрыть и удалить окно из DOM
+     */
+    close() {
+        if (!this.overlay) return;
+        
+        // Добавляем класс анимации выхода
+        this.modal.classList.add('scale-down');
+        this.overlay.classList.add('fade-out');
 
-        // Клик по фону
-        if (this.options.closeOnOverlay) {
-            this.overlayElement.onclick = (e) => {
-                if (e.target === this.overlayElement) this.close();
-            };
-        }
-
-        // Закрытие по ESC
-        this._escHandler = (e) => {
-            if (e.key === 'Escape') this.close();
-        };
-        document.addEventListener('keydown', this._escHandler, { once: true });
+        // Удаляем после завершения анимации (300ms)
+        setTimeout(() => {
+            if (this.overlay && this.overlay.parentNode) {
+                document.body.removeChild(this.overlay);
+            }
+            document.body.style.overflow = '';
+            this.overlay = null;
+        }, 250);
     }
 }
