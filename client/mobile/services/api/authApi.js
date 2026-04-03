@@ -1,87 +1,92 @@
 /**
- * CraneApp Auth API Service
- * REST API endpoints for authentication
- * Railway-ready, JWT-based
+ * API Сервис для аутентификации.
+ * Чистый модуль для взаимодействия с эндпоинтамиauth-service.
  */
 
-class AuthApi {
-  constructor() {
-    this.baseURL = 'https://api.craneapp.com/v1';
-    this.headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
-    };
-  }
+const BASE_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:5000/api/auth' 
+    : 'https://craneapp-production.up.railway.app/api/auth';
 
-  // Login with phone/email + password/code
-  async login(credentials) {
-    const endpoint = credentials.code 
-      ? '/auth/verify' 
-      : credentials.password 
-        ? '/auth/login' 
-        : '/auth/start';
+export const authApi = {
+    /**
+     * Запрос на проверку номера телефона и отправку OTP
+     * @param {string} phone 
+     */
+    checkPhone: async (phone) => {
+        const response = await fetch(`${BASE_URL}/check-phone`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone })
+        });
+        return await handleResponse(response);
+    },
+
+    /**
+     * Верификация OTP кода
+     * @param {string} phone 
+     * @param {string} code 
+     */
+    verifyOtp: async (phone, code) => {
+        const response = await fetch(`${BASE_URL}/verify-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, code })
+        });
+        return await handleResponse(response);
+    },
+
+    /**
+     * Финальная регистрация пользователя
+     * @param {Object} userData - { phone, username, fullName, avatar? }
+     */
+    register: async (userData) => {
+        const response = await fetch(`${BASE_URL}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
+        });
+        return await handleResponse(response);
+    },
+
+    /**
+     * Вход по логину/паролю (если включено в настройках безопасности)
+     */
+    login: async (identifier, password) => {
+        const response = await fetch(`${BASE_URL}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier, password })
+        });
+        return await handleResponse(response);
+    },
+
+    /**
+     * Обновление токена доступа
+     * @param {string} refreshToken 
+     */
+    refreshToken: async (refreshToken) => {
+        const response = await fetch(`${BASE_URL}/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken })
+        });
+        return await handleResponse(response);
+    }
+};
+
+/**
+ * Вспомогательная функция для обработки ответов сервера
+ */
+async function handleResponse(response) {
+    const data = await response.json();
     
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify({
-        identifier: credentials.identifier || credentials.phone,
-        password: credentials.password,
-        code: credentials.code
-      })
-    });
-
     if (!response.ok) {
-      throw new Error(await response.text());
+        // Выбрасываем структурированную ошибку для перехвата в хуках
+        const error = new Error(data.message || 'Ошибка сетевого запроса');
+        error.status = response.status;
+        error.details = data.errors || null;
+        throw error;
     }
-
-    return await response.json();
-  }
-
-  // Register new user
-  async register(data) {
-    const response = await fetch(`${this.baseURL}/auth/register`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify(data)
-    });
-
-    if (!response.ok) {
-      throw new Error(await response.text());
-    }
-
-    return await response.json();
-  }
-
-  // Refresh JWT token
-  async refreshToken() {
-    const token = localStorage.getItem('crane_token');
-    const response = await fetch(`${this.baseURL}/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        ...this.headers,
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error('Token refresh failed');
-    }
-
-    return await response.json();
-  }
-
-  // Logout (invalidate token)
-  async logout() {
-    const token = localStorage.getItem('crane_token');
-    await fetch(`${this.baseURL}/auth/logout`, {
-      method: 'POST',
-      headers: {
-        ...this.headers,
-        'Authorization': `Bearer ${token}`
-      }
-    });
-  }
+    
+    return data;
 }
-
-window.AuthApi = new AuthApi();
