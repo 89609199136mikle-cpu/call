@@ -1,109 +1,201 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Calls - CraneApp</title>
-  <script src="../../app/providers/authProvider.js"></script>
-  <script src="../../components/ui/avatar.js"></script>
-  <script src="../../components/ui/button.js"></script>
-</head>
-<body class="theme-telegram">
-  <div class="screen-container">
-    <div class="header">
-      <div class="header-left">
-        <button class="header-menu">☰</button>
-      </div>
-      <div class="header-title">
-        <h1>Calls</h1>
-      </div>
-      <div class="header-right">
-        <button class="header-action">🔍</button>
-      </div>
-    </div>
-    
-    <div class="calls-container">
-      <div class="call-tabs">
-        <button class="tab-btn active" data-tab="recent">Recent</button>
-        <button class="tab-btn" data-tab="cleared">Cleared</button>
-      </div>
-      
-      <div class="call-list" id="call-list">
-        <!-- Dynamic calls -->
-      </div>
-    </div>
-  </div>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Craneapp - Звонки</title>
+    <link rel="stylesheet" href="../../../public/styles.css">
+    <style>
+        body {
+            background-color: #0f0f1a;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            margin: 0;
+            color: #fff;
+        }
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const auth = window.AuthProvider;
-      
-      if (!auth.isAuth()) {
-        window.location.hash = '/auth/login';
-        return;
-      }
-      
-      // Mock calls data
-      window.callsData = [
-        { id: 1, contact: 'Alice Johnson', type: 'video', time: 'Today, 14:30', duration: '00:45', outgoing: true },
-        { id: 2, contact: 'Bob Wilson', type: 'voice', time: 'Today, 10:15', duration: '02:13', incoming: true, missed: true },
-        { id: 3, contact: 'Team Project', type: 'voice', time: 'Yesterday', duration: '01:22', group: true },
-        { id: 4, contact: 'Carol Davis', type: 'video', time: 'Mar 10', duration: '00:58', outgoing: true }
-      ];
-      
-      renderCalls();
-      
-      // Tab switching
-      document.querySelectorAll('.tab-btn').forEach(tab => {
-        tab.addEventListener('click', () => {
-          document.querySelector('.tab-btn.active')?.classList.remove('active');
-          tab.classList.add('active');
-          renderCalls();
+        /* Сегментированный переключатель под хедером */
+        .calls-filter-container {
+            padding: 70px 16px 10px;
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+        }
+
+        .segmented-control {
+            display: flex;
+            background: #2b2b3d;
+            border-radius: 8px;
+            padding: 2px;
+            width: 100%;
+            max-width: 300px;
+        }
+
+        .segment-btn {
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: #888;
+            padding: 6px 0;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .segment-btn.active {
+            background: #3e3e5a;
+            color: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* Список вызовов */
+        #calls-scroller {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 80px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .call-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            gap: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            transition: background 0.2s;
+        }
+
+        .call-item:active { background: rgba(122, 92, 255, 0.1); }
+
+        .call-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #2b2b3d;
+        }
+
+        .call-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .call-name {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .call-name.missed { color: #ff453a; }
+
+        .call-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: #888;
+        }
+
+        /* Индикаторы типов звонков */
+        .call-type-icon { font-size: 12px; }
+        .type-incoming { color: #4cd964; transform: rotate(135deg); }
+        .type-outgoing { color: #4cd964; transform: rotate(-45deg); }
+        .type-missed { color: #ff453a; }
+
+        .call-action-btn {
+            background: none;
+            border: none;
+            color: #7a5cff;
+            font-size: 20px;
+            padding: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="header-mount"></div>
+
+    <div class="calls-filter-container">
+        <div class="segmented-control">
+            <button class="segment-btn active" onclick="filterCalls('all', this)">Все</button>
+            <button class="segment-btn" onclick="filterCalls('missed', this)">Пропущенные</button>
+        </div>
+    </div>
+
+    <main id="calls-scroller">
+        <div id="calls-list">
+            </div>
+    </main>
+
+    <div id="tabbar-mount"></div>
+
+    <script type="module">
+        import { Header } from '../../components/navigation/header.js';
+        import { TabBar } from '../../components/navigation/tabBar.js';
+        import { formatDate } from '../../utils/formatDate.js';
+
+        // 1. Инициализация UI
+        const header = new Header({ 
+            title: 'Звонки', 
+            showBack: false,
+            actions: [{ icon: '🗑️', onClick: () => console.log('Clear logs') }]
         });
-      });
-      
-      function renderCalls() {
-        const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
-        const list = document.getElementById('call-list');
-        
-        const calls = activeTab === 'recent' ? window.callsData : [];
-        list.innerHTML = calls.map(call => `
-          <div class="call-item" data-call-id="${call.id}">
-            <div class="call-avatar">
-              ${CraneAvatar.create({ 
-                name: call.contact, 
-                size: 56, 
-                type: call.group ? 'group' : 'user' 
-              }).outerHTML}
-            </div>
-            <div class="call-info">
-              <div class="call-header">
-                <span class="call-contact">${call.contact}</span>
-                <span class="call-time">${call.time}</span>
-              </div>
-              <div class="call-details">
-                <span class="call-type ${call.type}">${call.type.toUpperCase()}</span>
-                ${call.duration ? `<span class="call-duration">${call.duration}</span>` : ''}
-                ${call.missed ? '<span class="call-status missed">Missed</span>' : ''}
-              </div>
-            </div>
-            <div class="call-actions">
-              <button class="call-action video-call">📹</button>
-              <button class="call-action voice-call">📞</button>
-            </div>
-          </div>
-        `).join('');
-        
-        // Call actions
-        document.querySelectorAll('.call-item').forEach(item => {
-          item.querySelectorAll('.call-action').forEach(btn => {
-            btn.addEventListener('click', () => {
-              window.location.hash = `/call/${item.dataset.callId}`;
-            });
-          });
+        document.getElementById('header-mount').appendChild(header.render());
+
+        const tabBar = new TabBar({ 
+            initialTab: 'calls',
+            onTabChange: (id) => {
+                if(id !== 'calls') window.location.href = `../${id}/${id}.html`;
+            }
         });
-      }
-    });
-  </script>
+        document.getElementById('tabbar-mount').appendChild(tabBar.render());
+
+        // 2. Мок-данные истории звонков
+        const callLogs = [
+            { id: 1, name: 'Александр', type: 'incoming', date: '14:20', missed: false },
+            { id: 2, name: 'Илон Маск', type: 'missed', date: 'Вчера, 23:10', missed: true },
+            { id: 3, name: 'Дмитрий', type: 'outgoing', date: 'Пн, 10:45', missed: false },
+            { id: 4, name: 'Анна', type: 'missed', date: '29 марта', missed: true }
+        ];
+
+        const listContainer = document.getElementById('calls-list');
+
+        function renderCalls(filter = 'all') {
+            const filtered = filter === 'missed' ? callLogs.filter(c => c.missed) : callLogs;
+            
+            listContainer.innerHTML = filtered.map(call => `
+                <div class="call-item" onclick="window.location.href='call.html?id=${call.id}'">
+                    <img src="https://i.pravatar.cc/150?u=${call.id}" class="call-avatar" alt="avatar">
+                    <div class="call-info">
+                        <span class="call-name ${call.missed ? 'missed' : ''}">${call.name}</span>
+                        <div class="call-meta">
+                            <span class="call-type-icon">
+                                ${call.type === 'missed' ? '<span class="type-missed">↙</span>' : 
+                                  call.type === 'incoming' ? '<span class="type-incoming">↙</span>' : 
+                                  '<span class="type-outgoing">↗</span>'}
+                            </span>
+                            <span>${call.date}</span>
+                        </div>
+                    </div>
+                    <button class="call-action-btn">📞</button>
+                </div>
+            `).join('');
+        }
+
+        // 3. Глобальная функция фильтрации (для упрощения вызова из HTML)
+        window.filterCalls = (type, btn) => {
+            document.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderCalls(type);
+        };
+
+        renderCalls();
+    </script>
 </body>
 </html>
