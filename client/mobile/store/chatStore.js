@@ -1,78 +1,101 @@
+import { storage } from '../services/storage/localStorage.js';
+
 /**
- * CraneApp Chat Store
- * Chats list + active chat + unread counts
+ * Хранилище списка чатов и их метаданных.
+ * Отвечает за сортировку, счетчики и статусы присутствия.
  */
 
 class ChatStore {
-  constructor() {
-    this.state = {
-      chats: [],
-      activeChat: null,
-      unreadCounts: {},
-      isLoading: false
-    };
-    this.listeners = [];
-    this.hydrate();
-  }
-
-  hydrate() {
-    const cached = window.LocalStorageManager?.getQuickCache('chats');
-    if (cached) {
-      this.state.chats = cached;
+    constructor() {
+        // Загружаем закэшированные чаты для мгновенного старта (Offline-first)
+        this._chats = storage.get('chats_list', []);
+        this._listeners = [];
+        this._typingStates = new Map(); // chatId -> { userId, username }
     }
-  }
 
-  setState(newState) {
-    Object.assign(this.state, newState);
-    window.LocalStorageManager?.setQuickCache('chats', this.state.chats);
-    this.notify();
-  }
-
-  async loadChats() {
-    this.setState({ isLoading: true });
-    
-    // Mock API response
-    const chats = [
-      { id: 1, name: 'Alice Johnson', lastMessage: 'Hey! How are you?', time: '14:30', unread: 3, online: true },
-      { id: 2, name: 'Team Project', lastMessage: 'New task assigned', time: '10:15', unread: 1, group: true },
-      { id: 3, name: 'Bob Wilson', lastMessage: 'See you tomorrow', time: '09:45', unread: 0, online: false }
-    ];
-    
-    this.setState({ 
-      chats, 
-      isLoading: false,
-      unreadCounts: chats.reduce((acc, chat) => {
-        acc[chat.id] = chat.unread;
-        return acc;
-      }, {})
-    });
-    
-    window.chatsData = chats;
-  }
-
-  setActiveChat(chatId) {
-    const chat = this.state.chats.find(c => c.id == chatId);
-    this.setState({ activeChat: chat });
-    window.activeChatId = chatId;
-  }
-
-  updateUnread(chatId, count) {
-    const chat = this.state.chats.find(c => c.id == chatId);
-    if (chat) {
-      chat.unread = count;
-      this.state.unreadCounts[chatId] = count;
-      this.notify();
+    /**
+     * Обновить весь список чатов (вызывается из useChats после API запроса)
+     */
+    setChats(chats) {
+        // Сортируем: чаты с самыми свежими сообщениями вверху
+        this._chats = this._sortChats(chats);
+        storage.set('chats_list', this._chats);
+        this._notify();
     }
-  }
 
-  subscribe(callback) {
-    this.listeners.push(callback);
-    callback(this.state); // Initial state
-  }
+    getChats() {
+        return this._chats;
+    }
 
-  notify() {
-    this.listeners.forEach(cb => cb(this.state));
-  }
+    /**
+     * Обновить последнее сообщение в конкретном чате (из socketEvents)
+     */
+    updateLastMessage(chatId, message) {
+        const index = this._chats.findIndex(c => c.id === chatId);
+        if (index !== -1) {
+            this._chats[index].lastMessage = message;
+            this._chats[index].updatedAt = message.timestamp;
+            
+            // Если сообщение входящее и чат не активен, увеличиваем счетчик
+            if (!message.isMine) {
+                this._chats[index].unreadCount = (this._chats[index].unreadCount || 0) + 1;
+            }
+
+            this._chats = this._sortChats(this._chats);
+            storage.set('chats_list', this._chats);
+            this._notify();
+        }
+    }
+
+    /**
+     * Установка статуса "Печатает..."
+     */
+    setUserTyping(chatId, userId, username) {
+        if (username) {
+            this._typingStates.set(chatId, { userId, username });
+        } else {
+            this._typingStates.delete(chatId);
+        }
+        this._notify();
+    }
+
+    getTypingUser(chatId) {
+        return this._typingStates.get(chatId) || null;
+    }
+
+    /**
+     * Сброс счетчика непрочитанных для конкретного чата
+     */
+    resetUnread(chatId) {
+        const chat = this._chats.find(c => c.id === chatId);
+        if (chat && chat.unreadCount > 0) {
+            chat.unreadCount = 0;
+            storage.set('chats_list', this._chats);
+            this._notify();
+        }
+    }
+
+    /**
+     * Вспомогательная сортировка по времени
+     */
+    _sortChats(chats) {
+        return [...chats].sort((a, b) => {
+            const dateA = new Date(a.lastMessage?.timestamp || a.updatedAt);
+            const dateB = new Date(b.lastMessage?.timestamp || b.updatedAt);
+            return dateB - dateA;
+        });
+    }
+
+    subscribe(callback) {
+        this._listeners.push(callback);
+        return () => {
+            this._listeners = this._listeners.filter(l => l !== callback);
+        };
+    }
+
+    _notify() {
+        this._listeners.forEach(callback => callback(this._chats));
+    }
 }
 
-window.ChatStore = new ChatStore();
+export const chatStore = new ChatStore();
