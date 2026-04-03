@@ -1,137 +1,208 @@
+export const INPUT_TYPES = {
+  TEXT: 'text',
+  PASSWORD: 'password',
+  EMAIL: 'email',
+  TEL: 'tel',
+  NUMBER: 'number',
+  SEARCH: 'search',
+  TEXTAREA: 'textarea',
+};
+
 /**
- * ================================================================================
- * CRANEAPP — REUSABLE INPUT COMPONENT
- * ================================================================================
- * Файл: client/mobile/components/ui/input.js
- * Назначение: Управляемое поле ввода с поддержкой иконок, масок и валидации.
- * ================================================================================
+ * Creates a styled input or textarea element
+ * @param {Object} options
+ * @returns {HTMLElement} wrapper div containing label + input + error
  */
+export function createInput({
+  type = INPUT_TYPES.TEXT,
+  label = '',
+  placeholder = '',
+  value = '',
+  name = '',
+  id = '',
+  required = false,
+  disabled = false,
+  maxLength = null,
+  rows = 3,
+  autoComplete = 'off',
+  onChange = null,
+  onInput = null,
+  onEnter = null,
+  onFocus = null,
+  onBlur = null,
+  error = '',
+  helperText = '',
+  icon = null,
+  className = '',
+}) {
+  const wrapper = document.createElement('div');
+  wrapper.className = `crane-input-wrapper ${className}`.trim();
+  wrapper.style.cssText = `display:flex;flex-direction:column;gap:6px;width:100%;`;
 
-import iconsData from '../../assets/icons/icons.json';
+  if (label) {
+    const labelEl = document.createElement('label');
+    labelEl.textContent = label + (required ? ' *' : '');
+    labelEl.htmlFor = id || name;
+    labelEl.style.cssText = `
+      font-size:var(--font-size-sm);
+      color:var(--color-text-secondary);
+      font-weight:500;
+    `;
+    wrapper.appendChild(labelEl);
+  }
 
-export class Input {
-    /**
-     * @param {Object} options 
-     * @param {string} options.type - 'text', 'password', 'tel', 'number', 'search'
-     * @param {string} options.label - Заголовок над полем
-     * @param {string} options.placeholder - Подсказка внутри
-     * @param {string} options.value - Начальное значение
-     * @param {string} options.icon - Ключ иконки слева
-     * @param {string} options.error - Сообщение об ошибке
-     * @param {Function} options.onChange - Коллбэк при вводе
-     */
-    constructor(options = {}) {
-        this.options = {
-            type: 'text',
-            label: '',
-            placeholder: '',
-            value: '',
-            icon: null,
-            error: null,
-            id: `input-${Math.random().toString(36).substr(2, 9)}`,
-            ...options
-        };
+  const inputWrapper = document.createElement('div');
+  inputWrapper.style.cssText = `position:relative;display:flex;align-items:center;`;
 
-        this.element = null;
-        this.inputElement = null;
+  const input = type === INPUT_TYPES.TEXTAREA
+    ? document.createElement('textarea')
+    : document.createElement('input');
+
+  if (type !== INPUT_TYPES.TEXTAREA) {
+    input.type = type;
+  } else {
+    input.rows = rows;
+    input.style.resize = 'none';
+  }
+
+  Object.assign(input, {
+    id: id || name,
+    name,
+    placeholder,
+    value,
+    required,
+    disabled,
+    autocomplete: autoComplete,
+  });
+
+  if (maxLength) input.maxLength = maxLength;
+
+  Object.assign(input.style, {
+    width: '100%',
+    padding: icon ? '12px 12px 12px 44px' : '12px 16px',
+    background: 'var(--color-input-bg)',
+    color: 'var(--color-text)',
+    border: `1px solid ${error ? 'var(--color-danger)' : 'var(--color-border)'}`,
+    borderRadius: 'var(--radius-md)',
+    fontSize: 'var(--font-size-md)',
+    outline: 'none',
+    transition: 'border-color var(--transition), box-shadow var(--transition)',
+    fontFamily: 'var(--font-family)',
+    lineHeight: '1.5',
+    boxSizing: 'border-box',
+  });
+
+  if (icon) {
+    const iconEl = document.createElement('img');
+    iconEl.src = icon;
+    iconEl.style.cssText = `
+      position:absolute;
+      left:14px;
+      width:18px;height:18px;
+      pointer-events:none;
+      opacity:0.6;
+    `;
+    inputWrapper.appendChild(iconEl);
+  }
+
+  input.addEventListener('focus', (e) => {
+    input.style.borderColor = 'var(--color-primary)';
+    input.style.boxShadow = '0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent)';
+    onFocus?.(e);
+  });
+
+  input.addEventListener('blur', (e) => {
+    input.style.borderColor = error ? 'var(--color-danger)' : 'var(--color-border)';
+    input.style.boxShadow = 'none';
+    onBlur?.(e);
+  });
+
+  if (onChange) input.addEventListener('change', onChange);
+  if (onInput) input.addEventListener('input', onInput);
+
+  if (onEnter) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        onEnter(e);
+      }
+    });
+  }
+
+  inputWrapper.appendChild(input);
+  wrapper.appendChild(inputWrapper);
+
+  if (error) {
+    const errorEl = document.createElement('span');
+    errorEl.textContent = error;
+    errorEl.style.cssText = `font-size:var(--font-size-xs);color:var(--color-danger);`;
+    wrapper.appendChild(errorEl);
+  } else if (helperText) {
+    const helper = document.createElement('span');
+    helper.textContent = helperText;
+    helper.style.cssText = `font-size:var(--font-size-xs);color:var(--color-text-secondary);`;
+    wrapper.appendChild(helper);
+  }
+
+  wrapper.getInput = () => input;
+  wrapper.getValue = () => input.value.trim();
+  wrapper.setValue = (v) => { input.value = v; };
+  wrapper.setError = (msg) => {
+    input.style.borderColor = msg ? 'var(--color-danger)' : 'var(--color-border)';
+    const existingErr = wrapper.querySelector('.crane-input-error');
+    if (existingErr) existingErr.remove();
+    if (msg) {
+      const errEl = document.createElement('span');
+      errEl.className = 'crane-input-error';
+      errEl.textContent = msg;
+      errEl.style.cssText = `font-size:var(--font-size-xs);color:var(--color-danger);`;
+      wrapper.appendChild(errEl);
     }
+  };
+  wrapper.focus = () => input.focus();
+  wrapper.clear = () => { input.value = ''; };
 
-    /**
-     * Рендеринг компонента
-     */
-    render() {
-        const { type, label, placeholder, value, icon, id } = this.options;
+  return wrapper;
+}
 
-        const container = document.createElement('div');
-        container.className = 'crane-input-group';
-        container.id = `group-${id}`;
+/**
+ * Creates a search input with clear button
+ */
+export function createSearchInput({ placeholder = 'Search...', onSearch, onClear, className = '' }) {
+  const wrapper = document.createElement('div');
+  wrapper.className = `crane-search-input ${className}`.trim();
+  wrapper.style.cssText = `
+    display:flex;align-items:center;
+    background:var(--color-input-bg);
+    border:1px solid var(--color-border);
+    border-radius:var(--radius-full);
+    padding:0 12px;
+    gap:8px;
+    transition:border-color var(--transition);
+  `;
 
-        container.innerHTML = `
-            ${label ? `<label class="input-label" for="${id}">${label}</label>` : ''}
-            <div class="input-wrapper">
-                ${icon ? `<div class="input-icon-prefix">${this._getIconSvg(icon)}</div>` : ''}
-                <input 
-                    id="${id}"
-                    type="${type}" 
-                    class="input-field ${icon ? 'has-prefix' : ''}" 
-                    placeholder="${placeholder}"
-                    value="${value}"
-                    autocomplete="off"
-                >
-                ${type === 'password' ? `<div class="input-icon-suffix password-toggle">${this._getIconSvg('more')}</div>` : ''}
-                <div class="input-bottom-line"></div>
-            </div>
-            <div class="input-error-text">${this.options.error || ''}</div>
-        `;
+  const searchIcon = document.createElement('span');
+  searchIcon.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="var(--color-text-secondary)"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>`;
 
-        this.element = container;
-        this.inputElement = container.querySelector('input');
+  const input = document.createElement('input');
+  input.type = 'search';
+  input.placeholder = placeholder;
+  input.style.cssText = `
+    flex:1;background:transparent;border:none;
+    color:var(--color-text);font-size:var(--font-size-md);
+    outline:none;padding:10px 0;
+  `;
 
-        this._setupEventListeners();
-        return container;
-    }
+  if (onSearch) {
+    input.addEventListener('input', (e) => onSearch(e.target.value));
+  }
 
-    /**
-     * Настройка внутренних событий
-     */
-    _setupEventListeners() {
-        // Обработка ввода
-        this.inputElement.addEventListener('input', (e) => {
-            this.options.value = e.target.value;
-            if (this.options.error) this.setError(null); // Сбрасываем ошибку при вводе
-            if (this.options.onChange) this.options.onChange(e.target.value);
-        });
+  wrapper.appendChild(searchIcon);
+  wrapper.appendChild(input);
 
-        // Эффект фокуса
-        this.inputElement.addEventListener('focus', () => {
-            this.element.classList.add('is-focused');
-        });
+  wrapper.focus = () => input.focus();
+  wrapper.getValue = () => input.value;
+  wrapper.clear = () => { input.value = ''; onClear?.(); };
 
-        this.inputElement.addEventListener('blur', () => {
-            this.element.classList.remove('is-focused');
-        });
-
-        // Переключатель видимости пароля
-        const toggle = this.element.querySelector('.password-toggle');
-        if (toggle) {
-            toggle.addEventListener('click', () => {
-                const isPassword = this.inputElement.type === 'password';
-                this.inputElement.type = isPassword ? 'text' : 'password';
-                toggle.style.opacity = isPassword ? '1' : '0.5';
-            });
-        }
-    }
-
-    /**
-     * Установка текста ошибки
-     * @param {string|null} msg 
-     */
-    setError(msg) {
-        this.options.error = msg;
-        const errorDiv = this.element.querySelector('.input-error-text');
-        if (msg) {
-            this.element.classList.add('has-error');
-            errorDiv.innerText = msg;
-        } else {
-            this.element.classList.remove('has-error');
-            errorDiv.innerText = '';
-        }
-    }
-
-    getValue() {
-        return this.inputElement.value;
-    }
-
-    clear() {
-        this.inputElement.value = '';
-        this.options.value = '';
-        this.setError(null);
-    }
-
-    _getIconSvg(iconKey) {
-        // Поиск пути иконки в подгруженном JSON (логика аналогична Button)
-        const path = iconsData.icons.chat[iconKey] || iconsData.icons.nav[iconKey] || iconsData.icons.actions[iconKey];
-        if (!path) return '';
-        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"></path></svg>`;
-    }
+  return wrapper;
 }
