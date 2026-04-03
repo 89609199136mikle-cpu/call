@@ -1,90 +1,87 @@
 /**
- * CraneApp Cache Manager
- * IndexedDB + LRU cache + offline-first
+ * Сервис кэширования Craneapp.
+ * Управляет временными данными в памяти и синхронизацией с постоянным хранилищем.
  */
 
-class CacheManager {
-  constructor() {
-    this.dbName = 'CraneAppCache';
-    this.version = 1;
-    this.cache = new Map();
-    this.initDB();
-  }
+class CacheService {
+    constructor() {
+        // Основное хранилище в оперативной памяти
+        this._cache = new Map();
+        
+        // Время жизни кэша по умолчанию (5 минут)
+        this.DEFAULT_TTL = 5 * 60 * 1000;
+    }
 
-  async initDB() {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(this.dbName, this.version);
-      
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
-        this.db = request.result;
-        resolve(this.db);
-      };
-      
-      request.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        db.createObjectStore('chats', { keyPath: 'id' });
-        db.createObjectStore('messages', { keyPath: 'id' });
-        db.createObjectStore('media', { keyPath: 'id' });
-      };
-    });
-  }
+    /**
+     * Установить значение в кэш
+     * @param {string} key - Уникальный ключ
+     * @param {any} value - Данные
+     * @param {number} ttl - Время жизни в мс (опционально)
+     */
+    set(key, value, ttl = this.DEFAULT_TTL) {
+        const expiry = Date.now() + ttl;
+        this._cache.set(key, { value, expiry });
+        
+        // Для отладки на Railway
+        if (window.location.hostname === 'localhost') {
+            console.log(`[Cache] Set: ${key} (expires in ${ttl/1000}s)`);
+        }
+    }
 
-  // Cache chats (with TTL)
-  async setChats(chats, ttl = 5 * 60 * 1000) {
-    const tx = this.db.transaction('chats', 'readwrite');
-    const store = tx.objectStore('chats');
-    
-    chats.forEach(chat => {
-      chat.cacheExpiry = Date.now() + ttl;
-      store.put(chat);
-    });
-  }
+    /**
+     * Получить значение из кэша
+     * @param {string} key 
+     */
+    get(key) {
+        const cached = this._cache.get(key);
+        
+        if (!cached) return null;
 
-  // Get cached chats
-  async getChats() {
-    const tx = this.db.transaction('chats', 'readonly');
-    const store = tx.objectStore('chats');
-    const request = store.getAll();
-    
-    return new Promise(resolve => {
-      request.onsuccess = () => {
-        const validChats = request.result.filter(chat => 
-          !chat.cacheExpiry || chat.cacheExpiry > Date.now()
-        );
-        resolve(validChats);
-      };
-    });
-  }
+        // Проверка на протухание (TTL)
+        if (Date.now() > cached.expiry) {
+            this._cache.delete(key);
+            return null;
+        }
 
-  // Cache messages
-  async setMessages(chatId, messages, ttl = 24 * 60 * 60 * 1000) {
-    const tx = this.db.transaction('messages', 'readwrite');
-    const store = tx.objectStore('messages');
-    
-    messages.forEach(msg => {
-      msg.chatId = chatId;
-      msg.cacheExpiry = Date.now() + ttl;
-      store.put(msg);
-    });
-  }
+        return cached.value;
+    }
 
-  // Clear expired cache
-  async clearExpired() {
-    const tx = this.db.transaction(['chats', 'messages'], 'readwrite');
-    ['chats', 'messages'].forEach(storeName => {
-      const store = tx.objectStore(storeName);
-      const request = store.getAll();
-      
-      request.onsuccess = () => {
-        request.result.forEach(item => {
-          if (item.cacheExpiry && item.cacheExpiry < Date.now()) {
-            store.delete(item.id);
-          }
-        });
-      };
-    });
-  }
+    /**
+     * Кэширование медиа-файлов (Blob/Base64)
+     * Используется для мгновенного отображения аватаров и стикеров
+     */
+    async cacheMedia(url) {
+        const cached = this.get(url);
+        if (cached) return cached;
+
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            
+            // Кэшируем на 1 час
+            this.set(url, objectUrl, 60 * 60 * 1000);
+            return objectUrl;
+        } catch (e) {
+            return url; // Возвращаем исходный URL при ошибке
+        }
+    }
+
+    /**
+     * Очистить весь кэш (например, при переключении аккаунта)
+     */
+    clear() {
+        this._cache.clear();
+        console.log('[Cache] All cleared');
+    }
+
+    /**
+     * Удалить конкретную запись
+     */
+    delete(key) {
+        this._cache.delete(key);
+    }
 }
 
-window.CacheManager = new CacheManager();
+// Экспортируем синглтон
+export const cache = new CacheService();
