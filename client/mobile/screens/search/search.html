@@ -1,194 +1,240 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Search - CraneApp</title>
-  <script src="../../app/providers/authProvider.js"></script>
-  <script src="../../components/ui/avatar.js"></script>
-  <script src="../../components/ui/input.js"></script>
-</head>
-<body class="theme-telegram">
-  <div class="screen-container">
-    <div class="search-header">
-      <button class="header-back">←</button>
-      <div id="search-input-container"></div>
-      <button class="header-action voice-search">🎤</button>
-    </div>
-    
-    <div class="search-container">
-      <div class="search-tabs">
-        <button class="tab-btn active" data-tab="global">Global</button>
-        <button class="tab-btn" data-tab="chats">Chats</button>
-        <button class="tab-btn" data-tab="contacts">Contacts</button>
-        <button class="tab-btn" data-tab="media">Media</button>
-      </div>
-      
-      <div class="search-results" id="search-results">
-        <div class="search-empty">
-          <div class="search-empty-icon">🔍</div>
-          <h3>Search</h3>
-          <p>Search messages, users, groups and more</p>
-        </div>
-      </div>
-    </div>
-  </div>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Craneapp - Поиск</title>
+    <link rel="stylesheet" href="../../../public/styles.css">
+    <style>
+        body {
+            background-color: #0f0f1a;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #fff;
+        }
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const auth = window.AuthProvider;
-      
-      if (!auth.isAuth()) {
-        window.location.hash = '/auth/login';
-        return;
-      }
-      
-      // Search input
-      const searchInput = CraneInput.create({
-        placeholder: 'Search',
-        clearable: true,
-        onChange: performSearch
-      });
-      document.getElementById('search-input-container').appendChild(searchInput);
-      
-      let searchTimeout;
-      function performSearch(query) {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-          renderSearchResults(query);
-        }, 300);
-      }
-      
-      // Mock search data
-      window.searchData = {
-        global: [
-          { type: 'message', preview: 'Looking for restaurants nearby', contact: 'Alice Johnson', time: '14:30' },
-          { type: 'user', name: 'Bob Wilson', username: '@bob_wilson', online: true },
-          { type: 'group', name: 'Team Project', members: 23, time: '2h ago' },
-          { type: 'channel', name: 'Tech News', subscribers: 12500 }
-        ],
-        chats: [
-          { type: 'chat', name: 'Alice Johnson', preview: 'See you tomorrow', unread: 2 },
-          { type: 'group', name: 'Team Project', preview: 'New task assigned' }
-        ],
-        contacts: [
-          { name: 'Carol Davis', username: '@carol_d', phone: '+7 999 555-12-34' },
-          { name: 'David Brown', phone: '+7 999 777-88-99' }
-        ],
-        media: [
-          { type: 'photo', preview: '/assets/images/sample1.jpg', from: 'Alice Johnson' },
-          { type: 'video', preview: '/assets/images/sample3.mp4', from: 'Team Project', duration: '0:45' }
-        ]
-      };
-      
-      function renderSearchResults(query) {
-        const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
-        const results = document.getElementById('search-results');
-        
-        if (!query.trim()) {
-          results.innerHTML = `
-            <div class="search-empty">
-              <div class="search-empty-icon">🔍</div>
-              <h3>Search</h3>
-              <p>Search messages, users, groups and more</p>
-            </div>
-          `;
-          return;
+        /* Поле поиска в хедере */
+        .search-header {
+            padding: 50px 16px 15px;
+            background: #1a1a2e;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
-        
-        const data = window.searchData[activeTab] || [];
-        const filtered = data.filter(item => 
-          item.name?.toLowerCase().includes(query.toLowerCase()) ||
-          item.preview?.toLowerCase().includes(query.toLowerCase()) ||
-          item.contact?.toLowerCase().includes(query.toLowerCase())
-        );
-        
-        if (filtered.length === 0) {
-          results.innerHTML = `
-            <div class="search-empty">
-              <div class="search-empty-icon">😔</div>
-              <h3>Nothing found</h3>
-              <p>Try different keywords</p>
-            </div>
-          `;
-          return;
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: #7a5cff;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
         }
-        
-        results.innerHTML = filtered.map(item => {
-          switch(item.type || activeTab) {
-            case 'message':
-              return `
-                <div class="search-result message">
-                  <div class="search-result-avatar">
-                    ${CraneAvatar.create({ name: item.contact, size: 48 }).outerHTML}
-                  </div>
-                  <div class="search-result-content">
-                    <div class="search-result-header">
-                      <span class="search-result-from">${item.contact}</span>
-                      <span class="search-result-time">${item.time}</span>
-                    </div>
-                    <div class="search-result-preview">${item.preview}</div>
-                  </div>
-                </div>
-              `;
-            case 'user':
-              return `
-                <div class="search-result user">
-                  <div class="search-result-avatar">
-                    ${CraneAvatar.create({ name: item.name, size: 56, online: item.online }).outerHTML}
-                  </div>
-                  <div class="search-result-content">
-                    <div class="search-result-name">${item.name}</div>
-                    ${item.username ? `<div class="search-result-username">@${item.username}</div>` : ''}
-                  </div>
-                  <div class="search-result-actions">
-                    <button class="btn btn--primary btn--sm">Start Chat</button>
-                  </div>
-                </div>
-              `;
-            case 'photo':
-            case 'video':
-              return `
-                <div class="search-result media">
-                  <img src="${item.preview}" class="search-result-media" />
-                  <div class="search-result-overlay">
-                    ${item.duration ? `<span class="media-duration">${item.duration}</span>` : ''}
-                  </div>
-                  <div class="search-result-from">${item.from}</div>
-                </div>
-              `;
-            default:
-              return `
-                <div class="search-result">
-                  <div class="search-result-avatar">
-                    ${CraneAvatar.create({ name: item.name, size: 48 }).outerHTML}
-                  </div>
-                  <div class="search-result-content">
-                    <span class="search-result-name">${item.name}</span>
-                    ${item.members ? `<span class="search-result-meta">${item.members} members</span>` : ''}
-                    ${item.subscribers ? `<span class="search-result-meta">${item.subscribers.toLocaleString()} subscribers</span>` : ''}
-                  </div>
-                </div>
-              `;
-          }
-        }).join('');
-      }
-      
-      // Tab switching
-      document.querySelectorAll('.tab-btn').forEach(tab => {
-        tab.addEventListener('click', () => {
-          document.querySelector('.tab-btn.active')?.classList.remove('active');
-          tab.classList.add('active');
-          const query = searchInput.querySelector('input').value;
-          if (query) renderSearchResults(query);
+
+        .search-input-wrapper {
+            flex: 1;
+            background: #2b2b3d;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            padding: 8px 14px;
+            border: 1px solid transparent;
+            transition: 0.3s;
+        }
+
+        .search-input-wrapper:focus-within {
+            border-color: #7a5cff;
+            background: #33334d;
+        }
+
+        .search-field {
+            background: transparent;
+            border: none;
+            color: #fff;
+            flex: 1;
+            outline: none;
+            font-size: 16px;
+            margin-left: 8px;
+        }
+
+        /* Табы категорий */
+        .search-tabs {
+            display: flex;
+            padding: 10px 16px;
+            gap: 10px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .search-tabs::-webkit-scrollbar { display: none; }
+
+        .tab-pill {
+            padding: 6px 16px;
+            background: #2b2b3d;
+            border-radius: 20px;
+            font-size: 13px;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: 0.2s;
+            color: #888;
+        }
+
+        .tab-pill.active {
+            background: #7a5cff;
+            color: #fff;
+        }
+
+        /* Результаты */
+        .results-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 16px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .result-section-title {
+            font-size: 12px;
+            color: #7a5cff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 20px 0 10px;
+            font-weight: 700;
+        }
+
+        .search-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .search-item:active { opacity: 0.7; }
+
+        .item-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: #2b2b3d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .item-info { flex: 1; overflow: hidden; }
+        .item-title { font-size: 16px; font-weight: 500; margin-bottom: 2px; }
+        .item-desc { font-size: 13px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .empty-state {
+            text-align: center;
+            margin-top: 100px;
+            color: #444;
+        }
+
+        .empty-icon { font-size: 50px; margin-bottom: 10px; opacity: 0.3; }
+    </style>
+</head>
+<body>
+
+    <header class="search-header">
+        <button class="back-btn" onclick="window.history.back()">←</button>
+        <div class="search-input-wrapper">
+            <span>🔍</span>
+            <input type="text" id="main-search" class="search-field" placeholder="Люди, группы, сообщения..." autofocus>
+        </div>
+    </header>
+
+    <nav class="search-tabs">
+        <div class="tab-pill active" data-type="all">Все</div>
+        <div class="tab-pill" data-type="chats">Чаты</div>
+        <div class="tab-pill" data-type="channels">Каналы</div>
+        <div class="tab-pill" data-type="messages">Сообщения</div>
+    </nav>
+
+    <main class="results-container" id="results">
+        <div class="empty-state" id="initial-state">
+            <div class="empty-icon">🔎</div>
+            <p>Введите запрос для поиска</p>
+        </div>
+    </main>
+
+    <script type="module">
+        const searchInput = document.getElementById('main-search');
+        const resultsContainer = document.getElementById('results');
+        const tabs = document.querySelectorAll('.tab-pill');
+
+        // Мок-данные для демонстрации
+        const mockData = [
+            { id: 1, type: 'chats', title: 'Александр', desc: '@alex_crane', icon: '👤' },
+            { id: 2, type: 'channels', title: 'Craneapp News', desc: '1.2k подписчиков', icon: '📢' },
+            { id: 3, type: 'messages', title: 'Дмитрий', desc: '...пришлю код для Railway завтра...', icon: '💬' }
+        ];
+
+        // Логика переключения табов
+        tabs.forEach(tab => {
+            tab.onclick = () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                performSearch(searchInput.value);
+            };
         });
-      });
-      
-      // Voice search
-      document.querySelector('.voice-search').addEventListener('click', () => {
-        console.log('Voice search activated');
-      });
-    });
-  </script>
+
+        // Живой поиск с debounce (задержкой)
+        let debounceTimer;
+        searchInput.oninput = (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                performSearch(e.target.value);
+            }, 300);
+        };
+
+        function performSearch(query) {
+            if (!query.trim()) {
+                resultsContainer.innerHTML = `<div class="empty-state"><div class="empty-icon">🔎</div><p>Введите запрос</p></div>`;
+                return;
+            }
+
+            const activeType = document.querySelector('.tab-pill.active').dataset.type;
+            const filtered = mockData.filter(item => {
+                const matchesQuery = item.title.toLowerCase().includes(query.toLowerCase());
+                const matchesType = activeType === 'all' || item.type === activeType;
+                return matchesQuery && matchesType;
+            });
+
+            renderResults(filtered);
+        }
+
+        function renderResults(data) {
+            if (data.length === 0) {
+                resultsContainer.innerHTML = `<div class="empty-state"><div class="empty-icon">🏜️</div><p>Ничего не найдено</p></div>`;
+                return;
+            }
+
+            resultsContainer.innerHTML = `
+                <div class="result-section-title">Результаты</div>
+                ${data.map(item => `
+                    <div class="search-item" onclick="handleItemClick('${item.type}', ${item.id})">
+                        <div class="item-icon">${item.icon}</div>
+                        <div class="item-info">
+                            <div class="item-title">${item.title}</div>
+                            <div class="item-desc">${item.desc}</div>
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        window.handleItemClick = (type, id) => {
+            console.log(`Переход к ${type} с ID ${id}`);
+            // Логика навигации в зависимости от типа
+            if(type === 'chats') window.location.href = `../chats/chat.html?id=${id}`;
+        };
+    </script>
 </body>
 </html>
