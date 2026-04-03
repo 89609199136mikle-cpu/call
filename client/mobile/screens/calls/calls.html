@@ -3,199 +3,208 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Craneapp - Звонки</title>
+    <title>Craneapp - Звонок</title>
     <link rel="stylesheet" href="../../../public/styles.css">
     <style>
         body {
             background-color: #0f0f1a;
+            margin: 0;
             height: 100vh;
+            color: #fff;
             display: flex;
             flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
             overflow: hidden;
-            margin: 0;
-            color: #fff;
+            font-family: 'Inter', sans-serif;
         }
 
-        /* Сегментированный переключатель под хедером */
-        .calls-filter-container {
-            padding: 70px 16px 10px;
-            background: #1a1a2e;
-            display: flex;
-            justify-content: center;
+        /* Задний фон с размытием (динамический аватар) */
+        .call-background {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to bottom, rgba(15, 15, 26, 0.8), #0f0f1a), 
+                        url('https://i.pravatar.cc/600?u=alex') center/cover;
+            filter: blur(40px);
+            z-index: -1;
+            transform: scale(1.1);
         }
 
-        .segmented-control {
-            display: flex;
-            background: #2b2b3d;
-            border-radius: 8px;
-            padding: 2px;
+        /* Верхняя панель: Инфо о звонке */
+        .call-header {
+            margin-top: 80px;
+            text-align: center;
+            animation: fadeInDown 0.6s ease-out;
+        }
+
+        .caller-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 40px;
+            margin-bottom: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        .caller-name { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+        .call-status { 
+            font-size: 16px; 
+            color: #7a5cff; 
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+
+        /* Анимация пульсации для статуса "Вызов..." */
+        .pulse {
+            animation: pulse-text 1.5s infinite;
+        }
+
+        @keyframes pulse-text {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* Центральная зона для видео (скрыта по умолчанию) */
+        #video-container {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: none;
+            background: #000;
+        }
+
+        /* Нижняя панель управления */
+        .call-controls {
             width: 100%;
-            max-width: 300px;
+            padding-bottom: calc(40px + env(safe-area-inset-bottom));
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            justify-items: center;
+            max-width: 320px;
         }
 
-        .segment-btn {
-            flex: 1;
+        .control-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            background: none;
             border: none;
-            background: transparent;
-            color: #888;
-            padding: 6px 0;
-            font-size: 13px;
-            font-weight: 600;
-            border-radius: 6px;
+            color: #fff;
             cursor: pointer;
+            font-size: 12px;
+        }
+
+        .icon-circle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
             transition: all 0.2s;
         }
 
-        .segment-btn.active {
-            background: #3e3e5a;
-            color: #fff;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        .control-btn.active .icon-circle {
+            background: #fff;
+            color: #0f0f1a;
         }
 
-        /* Список вызовов */
-        #calls-scroller {
-            flex: 1;
-            overflow-y: auto;
-            padding-bottom: 80px;
-            -webkit-overflow-scrolling: touch;
+        .btn-end {
+            background: #ff453a !important;
+            color: white !important;
+            box-shadow: 0 0 20px rgba(255, 69, 58, 0.4);
         }
 
-        .call-item {
-            display: flex;
-            align-items: center;
-            padding: 12px 16px;
-            gap: 14px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-            transition: background 0.2s;
-        }
+        .btn-end:active { transform: scale(0.9); }
 
-        .call-item:active { background: rgba(122, 92, 255, 0.1); }
-
-        .call-avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            object-fit: cover;
-            background: #2b2b3d;
-        }
-
-        .call-info {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .call-name {
-            font-size: 16px;
-            font-weight: 500;
-        }
-
-        .call-name.missed { color: #ff453a; }
-
-        .call-meta {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 13px;
-            color: #888;
-        }
-
-        /* Индикаторы типов звонков */
-        .call-type-icon { font-size: 12px; }
-        .type-incoming { color: #4cd964; transform: rotate(135deg); }
-        .type-outgoing { color: #4cd964; transform: rotate(-45deg); }
-        .type-missed { color: #ff453a; }
-
-        .call-action-btn {
-            background: none;
-            border: none;
-            color: #7a5cff;
-            font-size: 20px;
-            padding: 10px;
-            cursor: pointer;
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
 
-    <div id="header-mount"></div>
+    <div class="call-background"></div>
 
-    <div class="calls-filter-container">
-        <div class="segmented-control">
-            <button class="segment-btn active" onclick="filterCalls('all', this)">Все</button>
-            <button class="segment-btn" onclick="filterCalls('missed', this)">Пропущенные</button>
+    <header class="call-header">
+        <img src="https://i.pravatar.cc/300?u=alex" class="caller-avatar" alt="Avatar">
+        <div class="caller-name">Александр</div>
+        <div class="call-status pulse" id="status">Вызов...</div>
+    </header>
+
+    <div id="video-container">
+        </div>
+
+    <div class="call-controls">
+        <button class="control-btn" id="toggle-mic">
+            <div class="icon-circle">🎤</div>
+            <span>Микро</span>
+        </button>
+        
+        <button class="control-btn" id="toggle-video">
+            <div class="icon-circle">📹</div>
+            <span>Видео</span>
+        </button>
+
+        <button class="control-btn" id="toggle-speaker">
+            <div class="icon-circle">🔊</div>
+            <span>Динамик</span>
+        </button>
+
+        <div style="grid-column: span 3; margin-top: 20px;">
+            <button class="control-btn" id="end-call">
+                <div class="icon-circle btn-end">📞</div>
+                <span>Завершить</span>
+            </button>
         </div>
     </div>
 
-    <main id="calls-scroller">
-        <div id="calls-list">
-            </div>
-    </main>
-
-    <div id="tabbar-mount"></div>
-
     <script type="module">
-        import { Header } from '../../components/navigation/header.js';
-        import { TabBar } from '../../components/navigation/tabBar.js';
-        import { formatDate } from '../../utils/formatDate.js';
+        import { webrtcService } from '../../services/call-service/webrtc.js';
 
-        // 1. Инициализация UI
-        const header = new Header({ 
-            title: 'Звонки', 
-            showBack: false,
-            actions: [{ icon: '🗑️', onClick: () => console.log('Clear logs') }]
-        });
-        document.getElementById('header-mount').appendChild(header.render());
+        const statusEl = document.getElementById('status');
+        const endBtn = document.getElementById('end-call');
+        const micBtn = document.getElementById('toggle-mic');
 
-        const tabBar = new TabBar({ 
-            initialTab: 'calls',
-            onTabChange: (id) => {
-                if(id !== 'calls') window.location.href = `../${id}/${id}.html`;
-            }
-        });
-        document.getElementById('tabbar-mount').appendChild(tabBar.render());
+        // Имитация начала разговора через 3 секунды
+        setTimeout(() => {
+            statusEl.classList.remove('pulse');
+            statusEl.style.color = '#4cd964';
+            startTimer();
+        }, 3000);
 
-        // 2. Мок-данные истории звонков
-        const callLogs = [
-            { id: 1, name: 'Александр', type: 'incoming', date: '14:20', missed: false },
-            { id: 2, name: 'Илон Маск', type: 'missed', date: 'Вчера, 23:10', missed: true },
-            { id: 3, name: 'Дмитрий', type: 'outgoing', date: 'Пн, 10:45', missed: false },
-            { id: 4, name: 'Анна', type: 'missed', date: '29 марта', missed: true }
-        ];
-
-        const listContainer = document.getElementById('calls-list');
-
-        function renderCalls(filter = 'all') {
-            const filtered = filter === 'missed' ? callLogs.filter(c => c.missed) : callLogs;
-            
-            listContainer.innerHTML = filtered.map(call => `
-                <div class="call-item" onclick="window.location.href='call.html?id=${call.id}'">
-                    <img src="https://i.pravatar.cc/150?u=${call.id}" class="call-avatar" alt="avatar">
-                    <div class="call-info">
-                        <span class="call-name ${call.missed ? 'missed' : ''}">${call.name}</span>
-                        <div class="call-meta">
-                            <span class="call-type-icon">
-                                ${call.type === 'missed' ? '<span class="type-missed">↙</span>' : 
-                                  call.type === 'incoming' ? '<span class="type-incoming">↙</span>' : 
-                                  '<span class="type-outgoing">↗</span>'}
-                            </span>
-                            <span>${call.date}</span>
-                        </div>
-                    </div>
-                    <button class="call-action-btn">📞</button>
-                </div>
-            `).join('');
+        let seconds = 0;
+        function startTimer() {
+            setInterval(() => {
+                seconds++;
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                statusEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            }, 1000);
         }
 
-        // 3. Глобальная функция фильтрации (для упрощения вызова из HTML)
-        window.filterCalls = (type, btn) => {
-            document.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            renderCalls(type);
+        // Обработка кнопок
+        micBtn.onclick = () => {
+            micBtn.classList.toggle('active');
+            const isMuted = micBtn.classList.contains('active');
+            micBtn.querySelector('.icon-circle').textContent = isMuted ? '🔇' : '🎤';
         };
 
-        renderCalls();
+        endBtn.onclick = () => {
+            // webrtcService.hangup();
+            window.history.back();
+        };
+
+        // Блокировка выключения экрана (если поддерживается)
+        if ('wakeLock' in navigator) {
+            navigator.wakeLock.request('screen').catch(() => {});
+        }
     </script>
 </body>
 </html>
