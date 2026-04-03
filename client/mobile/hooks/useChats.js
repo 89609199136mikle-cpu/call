@@ -1,103 +1,104 @@
+import { chatStore } from '../store/chatStore.js';
+import { authStore } from '../store/authStore.js';
+
 /**
- * CraneApp Chats Hook
- * Real-time chat state management + socket integration
+ * Хук для управления чатами и сообщениями в Craneapp.
  */
+export const useChats = () => {
+    const API_URL = window.location.hostname === 'localhost' 
+        ? 'http://localhost:5000/api/chats' 
+        : 'https://craneapp-production.up.railway.app/api/chats';
 
-export function useChats() {
-  const chats = {
-    list: [],
-    activeChat: null,
-    isLoading: false,
-    unreadCounts: {}
-  };
+    const token = authStore.getToken();
 
-  // Load chats from cache/API
-  async function loadChats() {
-    chats.isLoading = true;
-    
-    try {
-      // Mock data (replace with chatApi.getChats())
-      chats.list = [
-        { 
-          id: 1, 
-          name: 'Alice Johnson', 
-          lastMessage: 'Hey! How are you?', 
-          time: '14:30', 
-          unread: 3, 
-          online: true 
-        },
-        { 
-          id: 2, 
-          name: 'Bob Wilson', 
-          lastMessage: 'See you tomorrow', 
-          time: '10:15', 
-          unread: 0, 
-          online: false 
+    /**
+     * Получение всех активных диалогов пользователя
+     */
+    const getMyChats = async () => {
+        try {
+            const response = await fetch(`${API_URL}/my-chats`, {
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message);
+
+            // Обновляем локальное хранилище
+            chatStore.setChats(data.chats);
+            return { success: true, chats: data.chats };
+        } catch (error) {
+            return { success: false, error: error.message };
         }
-      ];
-      
-      window.chatsData = chats.list;
-      window.dispatchEvent(new CustomEvent('chats:updated'));
-      
-    } finally {
-      chats.isLoading = false;
-    }
-  }
+    };
 
-  // Set active chat
-  function setActiveChat(chatId) {
-    chats.activeChat = chats.list.find(chat => chat.id == chatId);
-    window.activeChatId = chatId;
-  }
+    /**
+     * Загрузка истории сообщений конкретного чата
+     * @param {string} chatId 
+     */
+    const getMessages = async (chatId) => {
+        try {
+            const response = await fetch(`${API_URL}/${chatId}/messages`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
-  // Update unread count
-  function updateUnread(chatId, count) {
-    const chat = chats.list.find(c => c.id == chatId);
-    if (chat) {
-      chat.unread = count;
-      chats.unreadCounts[chatId] = count;
-      window.dispatchEvent(new CustomEvent('chats:unread-updated'));
-    }
-  }
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message);
 
-  // Socket event listeners
-  function initSocketEvents() {
-    window.addEventListener('socket:message', (e) => {
-      const chat = chats.list.find(c => c.id == e.detail.chatId);
-      if (chat && chats.activeChat?.id != e.detail.chatId) {
-        chat.lastMessage = e.detail.content;
-        chat.unread++;
-        chats.unreadCounts[chat.id] = chat.unread;
-      }
-      window.dispatchEvent(new CustomEvent('chats:updated'));
-    });
+            return { success: true, messages: data.messages };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
 
-    window.addEventListener('socket:user-online', (e) => {
-      const chat = chats.list.find(c => c.id == e.detail.chatId);
-      if (chat) chat.online = true;
-      window.dispatchEvent(new CustomEvent('chats:updated'));
-    });
-  }
+    /**
+     * Создание нового чата (или поиск существующего)
+     * @param {string} recipientId 
+     */
+    const createChat = async (recipientId) => {
+        try {
+            const response = await fetch(`${API_URL}/create`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ recipientId })
+            });
 
-  // Initialize
-  loadChats();
-  initSocketEvents();
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message);
 
-  // Global provider
-  window.ChatProvider = {
-    loadChats,
-    setActiveChat,
-    updateUnread,
-    state: chats
-  };
+            return { success: true, chat: data.chat };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
 
-  return {
-    chats: () => chats.list,
-    activeChat: () => chats.activeChat,
-    isLoading: () => chats.isLoading,
-    unreadCounts: () => chats.unreadCounts,
-    loadChats,
-    setActiveChat,
-    updateUnread
-  };
-}
+    /**
+     * Поиск пользователей по юзернейму (для создания новых чатов)
+     */
+    const searchUsers = async (query) => {
+        if (!query || query.length < 3) return [];
+        try {
+            const response = await fetch(`${API_URL}/search-users?q=${query}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            return data.users || [];
+        } catch (error) {
+            console.error('Ошибка поиска:', error);
+            return [];
+        }
+    };
+
+    return {
+        getMyChats,
+        getMessages,
+        createChat,
+        searchUsers,
+        allChats: chatStore.getChats()
+    };
+};
