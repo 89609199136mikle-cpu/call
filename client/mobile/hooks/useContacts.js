@@ -1,105 +1,80 @@
+import { authStore } from '../store/authStore.js';
+
 /**
- * CraneApp Contacts Hook
- * Contact management + search + sync
+ * Хук для управления списком контактов в Craneapp.
  */
+export const useContacts = () => {
+    const API_URL = window.location.hostname === 'localhost' 
+        ? 'http://localhost:5000/api/contacts' 
+        : 'https://craneapp-production.up.railway.app/api/contacts';
 
-export function useContacts() {
-  const contacts = {
-    list: [],
-    isLoading: false,
-    searchQuery: ''
-  };
+    const token = authStore.getToken();
 
-  // Load contacts from device/cache/API
-  async function loadContacts() {
-    contacts.isLoading = true;
-    
-    try {
-      // Mock data + device contacts API
-      if (navigator.contacts) {
-        const deviceContacts = await navigator.contacts.select(['name', 'tel'], { multiple: true });
-        contacts.list = deviceContacts.map(contact => ({
-          id: Date.now() + Math.random(),
-          name: contact.name[0],
-          phone: contact.tel[0]?.[0] || '',
-          username: null,
-          online: false
-        }));
-      } else {
-        // Fallback mock data
-        contacts.list = [
-          { id: 1, name: 'Alice Johnson', username: '@alice_j', phone: '+7 999 123-45-67', online: true },
-          { id: 2, name: 'Bob Wilson', username: '@bob_wilson', phone: '+7 999 987-65-43', online: false },
-          { id: 3, name: 'Carol Davis', username: '@carol_d', phone: '+7 999 555-12-34', online: true }
-        ];
-      }
-      
-      window.contactsData = contacts.list;
-      window.dispatchEvent(new CustomEvent('contacts:loaded'));
-      
-    } finally {
-      contacts.isLoading = false;
-    }
-  }
+    /**
+     * Получение списка всех контактов пользователя
+     */
+    const getContacts = async () => {
+        try {
+            const response = await fetch(`${API_URL}/all`, {
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
 
-  // Search contacts
-  function searchContacts(query) {
-    contacts.searchQuery = query;
-    const filtered = contacts.list.filter(contact =>
-      contact.name.toLowerCase().includes(query.toLowerCase()) ||
-      contact.username?.toLowerCase().includes(query.toLowerCase()) ||
-      contact.phone.includes(query)
-    );
-    return filtered;
-  }
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Ошибка загрузки контактов');
 
-  // Add contact
-  async function addContact(contactData) {
-    const newContact = {
-      id: Date.now(),
-      ...contactData,
-      online: false
+            return { success: true, contacts: data.contacts };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     };
-    contacts.list.unshift(newContact);
-    window.dispatchEvent(new CustomEvent('contacts:updated'));
-    return newContact;
-  }
 
-  // Socket events (online/offline status)
-  function initSocketEvents() {
-    window.addEventListener('socket:user-online', (e) => {
-      const contact = contacts.list.find(c => c.id == e.detail.userId);
-      if (contact) {
-        contact.online = true;
-        window.dispatchEvent(new CustomEvent('contacts:updated'));
-      }
-    });
+    /**
+     * Добавление нового контакта по номеру телефона или ID
+     * @param {string} identifier - Телефон или Username
+     */
+    const addContact = async (identifier) => {
+        try {
+            const response = await fetch(`${API_URL}/add`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ identifier })
+            });
 
-    window.addEventListener('socket:user-offline', (e) => {
-      const contact = contacts.list.find(c => c.id == e.detail.userId);
-      if (contact) {
-        contact.online = false;
-        window.dispatchEvent(new CustomEvent('contacts:updated'));
-      }
-    });
-  }
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message);
 
-  // Initialize
-  loadContacts();
-  initSocketEvents();
+            return { success: true, contact: data.contact };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
 
-  window.ContactProvider = {
-    loadContacts,
-    searchContacts,
-    addContact,
-    state: contacts
-  };
+    /**
+     * Удаление из списка контактов
+     */
+    const removeContact = async (contactId) => {
+        try {
+            const response = await fetch(`${API_URL}/remove/${contactId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
-  return {
-    contacts: () => contacts.list,
-    isLoading: () => contacts.isLoading,
-    searchContacts,
-    loadContacts,
-    addContact
-  };
-}
+            if (!response.ok) throw new Error('Не удалось удалить контакт');
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
+
+    return {
+        getContacts,
+        addContact,
+        removeContact
+    };
+};
