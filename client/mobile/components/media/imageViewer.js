@@ -1,81 +1,98 @@
 /**
- * CraneApp Image Viewer Component
- * Telegram-style full-screen image viewer (zoom, pan, share)
+ * CRANEAPP - UI COMPONENT: IMAGE VIEWER
+ * Путь: client/mobile/components/media/imageViewer.js
+ * Описание: Полноэкранный просмотрщик изображений с поддержкой закрытия жестом.
  */
 
 export class ImageViewer {
-  static create({ imageUrl, thumbnailUrl, onClose, onShare }) {
-    const viewer = document.createElement('div');
-    viewer.className = 'image-viewer';
-    
-    viewer.innerHTML = `
-      <div class="image-viewer-overlay" data-action="close"></div>
-      <div class="image-viewer-header">
-        <button class="image-viewer-btn" data-action="close">←</button>
-        <div class="image-viewer-info">
-          <span class="image-viewer-filename">photo.jpg</span>
-          <span class="image-viewer-size">2.1 MB</span>
-        </div>
-        <button class="image-viewer-btn" data-action="share">↗️</button>
-      </div>
-      <div class="image-viewer-container">
-        <img src="${thumbnailUrl || imageUrl}" data-src="${imageUrl}" class="image-viewer-img" />
-      </div>
-    `;
-    
-    const img = viewer.querySelector('.image-viewer-img');
-    const overlay = viewer.querySelector('.image-viewer-overlay');
-    const closeBtn = viewer.querySelectorAll('[data-action="close"]');
-    const shareBtn = viewer.querySelector('[data-action="share"]');
-    
-    // Load high-res image
-    img.addEventListener('load', () => {
-      if (img.dataset.src !== img.src) {
-        img.src = img.dataset.src;
-      }
-    });
-    
-    // Zoom/Pan gestures
-    let scale = 1, posX = 0, posY = 0;
-    let isDragging = false, startX, startY;
-    
-    viewer.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      scale += e.deltaY * -0.01;
-      scale = Math.min(Math.max(0.5, scale), 5);
-      img.style.transform = `scale(${scale})`;
-    });
-    
-    viewer.addEventListener('pointerdown', (e) => {
-      isDragging = true;
-      startX = e.clientX - posX;
-      startY = e.clientY - posY;
-    });
-    
-    viewer.addEventListener('pointermove', (e) => {
-      if (!isDragging) return;
-      posX = e.clientX - startX;
-      posY = e.clientY - startY;
-      img.style.transform = `scale(${scale}) translate(${posX}px, ${posY}px)`;
-    });
-    
-    viewer.addEventListener('pointerup', () => isDragging = false);
-    
-    // Double-click zoom
-    viewer.addEventListener('dblclick', (e) => {
-      e.preventDefault();
-      scale = scale > 1 ? 1 : 3;
-      img.style.transform = `scale(${scale})`;
-    });
-    
-    // Controls
-    closeBtn.forEach(btn => btn.addEventListener('click', onClose));
-    overlay.addEventListener('click', onClose);
-    shareBtn.addEventListener('click', onShare);
-    
-    document.body.appendChild(viewer);
-    return viewer;
-  }
-}
+    /**
+     * @param {Object} options
+     * @param {string} options.src - URL изображения
+     * @param {string} options.caption - Описание (опционально)
+     */
+    constructor(options = {}) {
+        this.src = options.src;
+        this.caption = options.caption || '';
+        this.overlay = null;
+        this.touchStartY = 0;
+    }
 
-window.CraneImageViewer = ImageViewer.create;
+    /**
+     * Инициализация и отображение
+     */
+    show() {
+        this.overlay = document.createElement('div');
+        this.overlay.className = 'image-viewer-overlay fade-in';
+        
+        this.overlay.innerHTML = `
+            <div class="viewer-header">
+                <button class="viewer-close">&times;</button>
+            </div>
+            <div class="viewer-content">
+                <img src="${this.src}" class="viewer-img zoom-in" alt="Media content">
+            </div>
+            ${this.caption ? `<div class="viewer-footer"><p>${this._escape(this.caption)}</p></div>` : ''}
+        `;
+
+        document.body.appendChild(this.overlay);
+        this._bindEvents();
+    }
+
+    /**
+     * Обработка событий (закрытие, жесты)
+     */
+    _bindEvents() {
+        const closeBtn = this.overlay.querySelector('.viewer-close');
+        const img = this.overlay.querySelector('.viewer-img');
+
+        // Закрытие по кнопке
+        closeBtn.onclick = () => this.close();
+
+        // Закрытие при клике на пустую область
+        this.overlay.onclick = (e) => {
+            if (e.target === this.overlay || e.target.className === 'viewer-content') {
+                this.close();
+            }
+        };
+
+        // Поддержка Swipe-to-close (смахивание вниз)
+        this.overlay.addEventListener('touchstart', (e) => {
+            this.touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        this.overlay.addEventListener('touchmove', (e) => {
+            const deltaY = e.touches[0].clientY - this.touchStartY;
+            if (deltaY > 0) {
+                img.style.transform = `translateY(${deltaY}px) scale(${1 - deltaY / 1000})`;
+                this.overlay.style.backgroundColor = `rgba(0, 0, 0, ${0.9 - deltaY / 500})`;
+            }
+        }, { passive: true });
+
+        this.overlay.addEventListener('touchend', (e) => {
+            const deltaY = e.changedTouches[0].clientY - this.touchStartY;
+            if (deltaY > 150) {
+                this.close();
+            } else {
+                img.style.transform = '';
+                this.overlay.style.backgroundColor = '';
+            }
+        });
+    }
+
+    close() {
+        if (!this.overlay) return;
+        this.overlay.classList.add('fade-out');
+        setTimeout(() => {
+            if (this.overlay && this.overlay.parentNode) {
+                this.overlay.remove();
+            }
+            this.overlay = null;
+        }, 250);
+    }
+
+    _escape(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+}
