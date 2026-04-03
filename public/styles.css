@@ -1,19 +1,4 @@
-/* ==========================================
-   CRANEAPP CORE STYLES
-   Design System: Telegram-inspired / Modern UI
-   ========================================== */
 
-:root {
-    /* Safe Areas for Modern Smartphones (Notch support) */
-    --safe-top: env(safe-area-inset-top, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-    
-    /* Animation Speeds */
-    --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-standard: 0.3s ease;
-}
-
-/* Base Reset */
 * {
     margin: 0;
     padding: 0;
