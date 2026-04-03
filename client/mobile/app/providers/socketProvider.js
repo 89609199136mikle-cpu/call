@@ -1,228 +1,130 @@
-/**
- * ================================================================================
- * CRANEAPP — SOCKET.IO PROVIDER (REAL-TIME ENGINE)
- * ================================================================================
- * Файл: client/mobile/app/providers/socketProvider.js
- * Назначение: Управление WebSocket-соединением, событиями и синхронизацией.
- * ================================================================================
- */
+import { socketClient } from '../../services/socket/socketClient.js';
+import { registerSocketEvents } from '../../services/socket/socketEvents.js';
+import { getAuthState } from '../../store/authStore.js';
 
-import { io } from 'https://cdn.socket.io/4.7.2/socket.io.esm.min.js';
-import { Logger } from '../../utils/logger.js';
+const RECONNECT_DELAY = 3000;
+const MAX_RECONNECT_ATTEMPTS = 10;
 
 export class SocketProvider {
-    /**
-     * @param {string} url - URL сервера сокетов (например, wss://api.craneapp.com)
-     * @param {string} token - JWT Access Token для авторизации
-     */
-    constructor(url, token) {
-        this.url = url;
-        this.token = token;
-        this.socket = null;
-        
-        // Настройки переподключения
-        this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 10;
-        this.reconnectDelay = 1000; // Начальная задержка 1 сек
+  constructor() {
+    this.socket = null;
+    this.connected = false;
+    this.reconnectAttempts = 0;
+    this.reconnectTimer = null;
+    this.listeners = new Map();
+  }
 
-        // Состояние
-        this.isConnected = false;
-        this.isReady = false;
-
-        // Очередь событий (если сокет упал, мы копим важные события здесь)
-        this.eventQueue = [];
-        
-        // Биндинг методов
-        this.handleConnect = this.handleConnect.bind(this);
-        this.handleDisconnect = this.handleDisconnect.bind(this);
-        this.handleError = this.handleError.bind(this);
-        this.handleReconnectAttempt = this.handleReconnectAttempt.bind(this);
+  async init() {
+    const auth = getAuthState();
+    if (!auth.isAuthenticated || !auth.token) {
+      console.warn('[SocketProvider] not authenticated, skipping socket init');
+      return;
     }
 
-    /**
-     * Инициализация и установка соединения
-     */
-    async connect() {
-        if (this.socket) return this.socket;
+    await this._connect(auth.token);
+  }
 
-        Logger.info(`[SocketProvider] Connecting to ${this.url}...`);
+  async _connect(token) {
+    try {
+      this.socket = await socketClient.connect({
+        token,
+        onConnect: () => this._onConnect(),
+        onDisconnect: (reason) => this._onDisconnect(reason),
+        onError: (error) => this._onError(error),
+      });
 
-        try {
-            this.socket = io(this.url, {
-                auth: { token: this.token },
-                transports: ['websocket', 'polling'], // Приоритет Websocket
-                reconnection: true,
-                reconnectionAttempts: this.maxReconnectAttempts,
-                reconnectionDelay: this.reconnectDelay,
-                reconnectionDelayMax: 10000, // Макс. задержка 10 сек
-                timeout: 20000,
-                autoConnect: true
-            });
+      registerSocketEvents(this.socket, {
+        onMessage: (data) => this._emit('message', data),
+        onTyping: (data) => this._emit('typing', data),
+        onPresence: (data) => this._emit('presence', data),
+        onCallIncoming: (data) => this._emit('call:incoming', data),
+        onCallSignal: (data) => this._emit('call:signal', data),
+        onCallEnd: (data) => this._emit('call:end', data),
+        onNotification: (data) => this._emit('notification', data),
+        onMessageRead: (data) => this._emit('message:read', data),
+        onMessageDeleted: (data) => this._emit('message:deleted', data),
+        onReaction: (data) => this._emit('reaction', data),
+      });
+    } catch (error) {
+      console.error('[SocketProvider] connection error:', error);
+      this._scheduleReconnect(token);
+    }
+  }
 
-            this.setupListeners();
-            return this.socket;
+  _onConnect() {
+    this.connected = true;
+    this.reconnectAttempts = 0;
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this._emit('connect', null);
+    console.info('[SocketProvider] connected');
+  }
 
-        } catch (error) {
-            Logger.error('[SocketProvider] Connection failed', error);
-            throw error;
-        }
+  _onDisconnect(reason) {
+    this.connected = false;
+    this._emit('disconnect', reason);
+    console.warn('[SocketProvider] disconnected:', reason);
+
+    if (reason !== 'io client disconnect') {
+      const auth = getAuthState();
+      if (auth.token) this._scheduleReconnect(auth.token);
+    }
+  }
+
+  _onError(error) {
+    console.error('[SocketProvider] socket error:', error);
+    this._emit('error', error);
+  }
+
+  _scheduleReconnect(token) {
+    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      console.error('[SocketProvider] max reconnect attempts reached');
+      return;
     }
 
-    /**
-     * Регистрация системных слушателей Socket.io
-     */
-    setupListeners() {
-        if (!this.socket) return;
+    const delay = RECONNECT_DELAY * Math.pow(1.5, this.reconnectAttempts);
+    this.reconnectAttempts++;
 
-        // 1. Успешное соединение
-        this.socket.on('connect', this.handleConnect);
+    this.reconnectTimer = setTimeout(async () => {
+      console.info(`[SocketProvider] reconnect attempt ${this.reconnectAttempts}`);
+      await this._connect(token);
+    }, delay);
+  }
 
-        // 2. Разрыв соединения
-        this.socket.on('disconnect', this.handleDisconnect);
-
-        // 3. Ошибки (включая ошибки авторизации)
-        this.socket.on('connect_error', this.handleError);
-
-        // 4. Попытки переподключения
-        this.socket.on('reconnect_attempt', this.handleReconnectAttempt);
-        this.socket.on('reconnect_failed', () => {
-            Logger.critical('[SocketProvider] All reconnection attempts failed.');
-            window.dispatchEvent(new CustomEvent('socket:critical_error', { detail: 'RECONNECT_FAILED' }));
-        });
-
-        // 5. Системные уведомления от сервера
-        this.socket.on('server:ping', () => this.socket.emit('server:pong'));
+  emit(event, data) {
+    if (!this.socket || !this.connected) {
+      console.warn(`[SocketProvider] cannot emit "${event}" — not connected`);
+      return false;
     }
+    this.socket.emit(event, data);
+    return true;
+  }
 
-    /**
-     * Обработчик успешного коннекта
-     */
-    handleConnect() {
-        this.isConnected = true;
-        this.reconnectAttempts = 0;
-        Logger.success(`[SocketProvider] Connected with ID: ${this.socket.id}`);
-
-        // Сообщаем системе, что мы в сети
-        window.dispatchEvent(new CustomEvent('socket:status', { detail: { online: true } }));
-
-        // Очищаем очередь накопившихся событий (Offline Storage)
-        this.flushEventQueue();
+  on(event, listener) {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
     }
+    this.listeners.get(event).add(listener);
+    return () => this.off(event, listener);
+  }
 
-    /**
-     * Обработчик дисконнекта
-     */
-    handleDisconnect(reason) {
-        this.isConnected = false;
-        Logger.warn(`[SocketProvider] Disconnected. Reason: ${reason}`);
+  off(event, listener) {
+    this.listeners.get(event)?.delete(listener);
+  }
 
-        window.dispatchEvent(new CustomEvent('socket:status', { detail: { online: false } }));
+  _emit(event, data) {
+    this.listeners.get(event)?.forEach((fn) => fn(data));
+  }
 
-        // Если дисконнект инициирован сервером (например, бан или кик), 
-        // Socket.io не будет пытаться переподключиться сам
-        if (reason === "io server disconnect") {
-            this.socket.connect();
-        }
+  isConnected() {
+    return this.connected;
+  }
+
+  async disconnect() {
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    if (this.socket) {
+      await socketClient.disconnect();
+      this.socket = null;
+      this.connected = false;
     }
-
-    /**
-     * Обработка ошибок
-     */
-    handleError(error) {
-        Logger.error('[SocketProvider] Socket Error:', error.message);
-        
-        // Если сервер вернул "Unauthorized", значит токен протух
-        if (error.message === 'Authentication error' || error.message === 'xhr poll error') {
-            Logger.warn('[SocketProvider] Auth failed, requesting token refresh...');
-            window.dispatchEvent(new CustomEvent('auth:refresh_required'));
-        }
-    }
-
-    handleReconnectAttempt(attempt) {
-        this.reconnectAttempts = attempt;
-        Logger.info(`[SocketProvider] Reconnection attempt #${attempt}...`);
-    }
-
-    /**
-     * МЕТОД ОТПРАВКИ (С ОЧЕРЕДЬЮ)
-     * Используется для отправки сообщений или статусов
-     * @param {string} event - Имя события
-     * @param {Object} data - Данные
-     * @param {Function} callback - Подтверждение получения (ACK)
-     */
-    emit(event, data, callback = null) {
-        if (!this.isConnected) {
-            Logger.warn(`[SocketProvider] Offline. Queueing event: ${event}`);
-            this.eventQueue.push({ event, data, callback });
-            return;
-        }
-
-        // Отправка с использованием механизма подтверждения Delivery
-        this.socket.emit(event, data, (response) => {
-            if (callback) callback(response);
-            
-            if (response && response.error) {
-                Logger.error(`[SocketProvider] ACK Error for ${event}:`, response.error);
-            }
-        });
-    }
-
-    /**
-     * Подписка на событие
-     */
-    on(event, handler) {
-        if (!this.socket) {
-            Logger.error('[SocketProvider] Cannot subscribe: socket not initialized');
-            return;
-        }
-        this.socket.on(event, handler);
-    }
-
-    /**
-     * Отписка от события
-     */
-    off(event, handler) {
-        if (this.socket) {
-            this.socket.off(event, handler);
-        }
-    }
-
-    /**
-     * Принудительная очистка очереди после восстановления связи
-     */
-    flushEventQueue() {
-        if (this.eventQueue.length === 0) return;
-
-        Logger.info(`[SocketProvider] Flushing ${this.eventQueue.length} queued events...`);
-        
-        while (this.eventQueue.length > 0) {
-            const { event, data, callback } = this.eventQueue.shift();
-            this.emit(event, data, callback);
-        }
-    }
-
-    /**
-     * Обновление токена без перезагрузки соединения (если возможно)
-     * или с мягким перезапуском
-     */
-    updateToken(newToken) {
-        this.token = newToken;
-        if (this.socket) {
-            this.socket.auth.token = newToken;
-            // Переподключаемся с новым токеном
-            this.socket.disconnect().connect();
-        }
-    }
-
-    /**
-     * Полное закрытие соединения (Logout)
-     */
-    disconnect() {
-        if (this.socket) {
-            Logger.info('[SocketProvider] Manually disconnecting...');
-            this.socket.disconnect();
-            this.socket = null;
-            this.isConnected = false;
-        }
-    }
+  }
 }
