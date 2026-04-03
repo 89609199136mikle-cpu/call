@@ -1,136 +1,88 @@
 /**
- * CraneApp Tab Bar Component
- * Telegram-style bottom navigation (56px, icons + badges + active state)
- * Railway-ready, mobile-first (390px)
+ * CRANEAPP - UI COMPONENT: TAB BAR
+ * Путь: client/mobile/components/navigation/tabBar.js
+ * Описание: Нижняя панель навигации для переключения между главными экранами.
  */
 
 export class TabBar {
-  static create({ 
-    activeTab = 'chats', 
-    unreadCounts = {}, 
-    onTabChange 
-  } = {}) {
-    const tabBar = document.createElement('nav');
-    tabBar.className = 'tab-bar';
-    
-    // Telegram tabs structure (4 tabs)
-    const tabs = [
-      { id: 'chats', icon: '💬', label: 'Chats', count: unreadCounts.chats || 0 },
-      { id: 'contacts', icon: '👥', label: 'Contacts', count: unreadCounts.contacts || 0 },
-      { id: 'calls', icon: '📞', label: 'Calls', count: unreadCounts.calls || 0 },
-      { id: 'settings', icon: '⚙️', label: 'Settings', count: 0 }
-    ];
-    
-    tabBar.innerHTML = tabs.map(tab => `
-      <button 
-        class="tab-bar-item ${activeTab === tab.id ? 'active' : ''}" 
-        data-tab="${tab.id}"
-      >
-        <span class="tab-icon">${tab.icon}</span>
-        <span class="tab-label">${tab.label}</span>
-        ${tab.count > 0 ? `<span class="tab-badge">${tab.count > 99 ? '99+' : tab.count}</span>` : ''}
-      </button>
-    `).join('');
-    
-    // Tab click handlers (Telegram smooth transition)
-    tabBar.querySelectorAll('.tab-bar-item').forEach(item => {
-      item.addEventListener('## client/mobile/components/navigation/tabBar.js
-```javascript
-/**
- * CraneApp Tab Bar Component
- * Telegram-style bottom navigation (56px height, icons + labels + badges)
- * Vanilla JS, touch-friendly, Railway production-ready
- */
+    /**
+     * @param {Object} options
+     * @param {string} options.initialTab - ID начальной вкладки
+     * @param {Function} options.onTabChange - Колбэк при смене вкладки
+     */
+    constructor(options = {}) {
+        this.onTabChange = options.onTabChange || (() => {});
+        this.activeTabId = options.initialTab || 'chats';
+        this.tabs = [
+            { id: 'contacts', label: 'Контакты', icon: '👤' },
+            { id: 'calls', label: 'Звонки', icon: '📞' },
+            { id: 'chats', label: 'Чаты', icon: '💬', badge: 0 },
+            { id: 'settings', label: 'Настройки', icon: '⚙️' }
+        ];
+        this.element = null;
+    }
 
-export class TabBar {
-  constructor({ 
-    activeTab = 'chats', 
-    badgeCounts = {}, 
-    onTabChange 
-  } = {}) {
-    this.activeTab = activeTab;
-    this.badgeCounts = badgeCounts;
-    this.onTabChange = onTabChange;
-    this.render();
-    this.bindEvents();
-  }
+    /**
+     * Рендеринг панели
+     */
+    render() {
+        this.element = document.createElement('nav');
+        this.element.className = 'crane-tab-bar';
 
-  render() {
-    const tabs = [
-      { id: 'chats', icon: '💬', label: 'Chats', badgeKey: 'chats' },
-      { id: 'contacts', icon: '👥', label: 'Contacts', badgeKey: 'contacts' },
-      { id: 'calls', icon: '📞', label: 'Calls', badgeKey: 'calls' },
-      { id: 'settings', icon: '⚙️', label: 'Settings', badgeKey: null }
-    ];
+        this.tabs.forEach(tab => {
+            const button = document.createElement('button');
+            button.className = `tab-item ${this.activeTabId === tab.id ? 'active' : ''}`;
+            button.dataset.id = tab.id;
 
-    this.element = document.createElement('nav');
-    this.element.className = 'tab-bar';
-    
-    this.element.innerHTML = tabs.map(tab => {
-      const badge = this.badgeCounts[tab.badgeKey] || 0;
-      const isActive = this.activeTab === tab.id;
-      return `
-        <button class="tab-bar-item ${isActive ? 'active' : ''}" data-tab="${tab.id}">
-          <span class="tab-icon">${tab.icon}</span>
-          <span class="tab-label">${tab.label}</span>
-          ${badge > 0 ? `<span class="tab-badge">${badge > 99 ? '99+' : badge}</span>` : ''}
-        </button>
-      `;
-    }).join('');
-  }
+            button.innerHTML = `
+                <div class="tab-icon-wrapper">
+                    <span class="tab-icon">${tab.icon}</span>
+                    ${tab.badge > 0 ? `<span class="tab-badge">${tab.badge}</span>` : ''}
+                </div>
+                <span class="tab-label">${tab.label}</span>
+            `;
 
-  bindEvents() {
-    this.element.querySelectorAll('.tab-bar-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.preventDefault();
-        
-        // Deactivate current tab
-        this.element.querySelector('.active')?.classList.remove('active');
-        
-        // Activate clicked tab
-        const tabId = item.dataset.tab;
-        item.classList.add('active');
-        this.activeTab = tabId;
-        
-        // Callback
-        this.onTabChange?.(tabId);
-        
-        // Navigation
-        window.location.hash = `/${tabId}`;
-      });
+            button.onclick = () => this._handleTabClick(tab.id);
+            this.element.appendChild(button);
+        });
 
-      // Haptic feedback (mobile)
-      item.addEventListener('touchstart', (e) => {
-        if (navigator.vibrate) navigator.vibrate(20);
-      });
-    });
-  }
+        return this.element;
+    }
 
-  // Update badge counts
-  updateBadges(counts) {
-    this.badgeCounts = counts;
-    this.element.querySelectorAll('.tab-badge').forEach(badge => {
-      const tabId = badge.closest('.tab-bar-item').dataset.tab;
-      const count = this.badgeCounts[tabId] || 0;
-      badge.textContent = count > 99 ? '99+' : count;
-      badge.style.display = count > 0 ? 'flex' : 'none';
-    });
-  }
+    /**
+     * Обновление счетчика сообщений (Badge)
+     */
+    updateBadge(tabId, count) {
+        const tab = this.tabs.find(t => t.id === tabId);
+        if (tab) {
+            tab.badge = count;
+            const btn = this.element.querySelector(`[data-id="${tabId}"] .tab-icon-wrapper`);
+            const existingBadge = btn.querySelector('.tab-badge');
+            
+            if (count > 0) {
+                if (existingBadge) {
+                    existingBadge.textContent = count > 99 ? '99+' : count;
+                } else {
+                    const badge = document.createElement('span');
+                    badge.className = 'tab-badge';
+                    badge.textContent = count;
+                    btn.appendChild(badge);
+                }
+            } else if (existingBadge) {
+                existingBadge.remove();
+            }
+        }
+    }
 
-  // Set active tab programmatically
-  setActiveTab(tabId) {
-    this.element.querySelector('.active')?.classList.remove('active');
-    const activeItem = this.element.querySelector(`[data-tab="${tabId}"]`);
-    activeItem?.classList.add('active');
-    this.activeTab = tabId;
-  }
+    _handleTabClick(id) {
+        if (this.activeTabId === id) return;
 
-  // Attach to DOM
-  attach(parent) {
-    parent.appendChild(this.element);
-    return this.element;
-  }
+        // Визуальное переключение
+        this.element.querySelectorAll('.tab-item').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.id === id);
+        });
+
+        this.activeTabId = id;
+        this.onTabChange(id);
+    }
 }
-
-// Global factory (Telegram-style usage)
-window.CraneTabBar = (config) => new TabBar(config);
