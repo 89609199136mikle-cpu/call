@@ -1,129 +1,197 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Contacts - CraneApp</title>
-  <script src="../../app/providers/authProvider.js"></script>
-  <script src="../../components/ui/avatar.js"></script>
-  <script src="../../components/ui/input.js"></script>
-</head>
-<body class="theme-telegram">
-  <div class="screen-container">
-    <div class="header">
-      <div class="header-left">
-        <button class="header-menu">☰</button>
-      </div>
-      <div class="header-title">
-        <h1>Contacts</h1>
-      </div>
-      <div class="header-right">
-        <button id="add-contact-btn" class="header-action">➕</button>
-      </div>
-    </div>
-    
-    <div class="contacts-container">
-      <div class="search-section">
-        <div id="contacts-search"></div>
-      </div>
-      
-      <div class="contacts-list" id="contacts-list">
-        <!-- Dynamic contacts -->
-      </div>
-    </div>
-  </div>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Craneapp - Контакты</title>
+    <link rel="stylesheet" href="../../../public/styles.css">
+    <style>
+        body {
+            background-color: #0f0f1a;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            margin: 0;
+            color: #fff;
+        }
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const auth = window.AuthProvider;
-      
-      if (!auth.isAuth()) {
-        window.location.hash = '/auth/login';
-        return;
-      }
-      
-      // Search input
-      const searchInput = CraneInput.create({
-        placeholder: 'Search contacts',
-        clearable: true,
-        onChange: (value) => filterContacts(value)
-      });
-      document.getElementById('contacts-search').appendChild(searchInput);
-      
-      // Mock contacts data
-      window.contactsData = [
-        { id: 1, name: 'Alice Johnson', username: '@alice_j', phone: '+7 999 123-45-67', online: true },
-        { id: 2, name: 'Bob Wilson', username: '@bob_wilson', phone: '+7 999 987-65-43', online: false },
-        { id: 3, name: 'Carol Davis', username: '@carol_d', phone: '+7 999 555-12-34', online: true },
-        { id: 4, name: 'David Brown', username: null, phone: '+7 999 777-88-99', online: false }
-      ];
-      
-      renderContacts();
-      
-      function renderContacts(contacts = window.contactsData) {
-        const list = document.getElementById('contacts-list');
-        list.innerHTML = contacts.map(contact => `
-          <div class="contact-item" data-contact-id="${contact.id}">
-            <div class="contact-avatar">
-              ${CraneAvatar.create({ 
-                name: contact.name, 
-                size: 56, 
-                online: contact.online,
-                verified: contact.id === 1
-              }).outerHTML}
+        /* Поиск в верхней части под хедером */
+        .search-bar-container {
+            padding: 70px 16px 10px;
+            background: #1a1a2e;
+        }
+
+        .search-input-wrapper {
+            background: #2b2b3d;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            gap: 10px;
+        }
+
+        .search-icon { color: #888; font-size: 14px; }
+
+        .search-field {
+            background: transparent;
+            border: none;
+            color: #fff;
+            flex: 1;
+            outline: none;
+            font-size: 15px;
+        }
+
+        /* Список контактов */
+        #contacts-scroller {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 80px; /* Таб-бар */
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .alphabet-label {
+            background: rgba(26, 26, 46, 0.8);
+            padding: 4px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #7a5cff;
+            position: sticky;
+            top: 0;
+            backdrop-filter: blur(5px);
+            z-index: 10;
+        }
+
+        .contact-row {
+            display: flex;
+            align-items: center;
+            padding: 10px 16px;
+            gap: 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+        }
+
+        .contact-row:active { background: rgba(122, 92, 255, 0.1); }
+
+        .contact-img {
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #2b2b3d;
+        }
+
+        .contact-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .contact-name { font-size: 16px; font-weight: 500; }
+        .contact-status { font-size: 12px; color: #888; margin-top: 2px; }
+        .contact-status.online { color: #4cd964; }
+
+        /* Состояние пустого поиска */
+        #empty-results {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="header-mount"></div>
+
+    <div class="search-bar-container">
+        <div class="search-input-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="search-contacts" class="search-field" placeholder="Поиск контактов...">
+        </div>
+    </div>
+
+    <main id="contacts-scroller">
+        <div id="empty-results">Ничего не найдено</div>
+        <div id="contacts-list">
             </div>
-            <div class="contact-info">
-              <div class="contact-name">${contact.name}</div>
-              <div class="contact-details">
-                ${contact.username ? `<span>@${contact.username}</span>` : ''}
-                <span>${contact.phone}</span>
-              </div>
-            </div>
-            <div class="contact-actions">
-              <button class="contact-start-chat">Message</button>
-            </div>
-          </div>
-        `).join('');
-        
-        // Contact actions
-        document.querySelectorAll('.contact-item').forEach(item => {
-          item.addEventListener('click', (e) => {
-            if (e.target.closest('.contact-start-chat')) {
-              const contactId = item.dataset.contactId;
-              window.location.hash = `/chat/${contactId}`;
+    </main>
+
+    <div id="tabbar-mount"></div>
+
+    <script type="module">
+        import { Header } from '../../components/navigation/header.js';
+        import { TabBar } from '../../components/navigation/tabBar.js';
+
+        // 1. Инициализация Навигации
+        const header = new Header({ title: 'Контакты', showBack: false });
+        document.getElementById('header-mount').appendChild(header.render());
+
+        const tabBar = new TabBar({ 
+            initialTab: 'contacts',
+            onTabChange: (id) => {
+                if(id !== 'contacts') window.location.href = `../${id}/${id}.html`;
             }
-          });
         });
-      }
-      
-      function filterContacts(query) {
-        const filtered = window.contactsData.filter(contact =>
-          contact.name.toLowerCase().includes(query.toLowerCase()) ||
-          contact.username?.toLowerCase().includes(query.toLowerCase()) ||
-          contact.phone.includes(query)
-        );
-        renderContacts(filtered);
-      }
-      
-      // Add contact
-      document.getElementById('add-contact-btn').addEventListener('click', () => {
-        window.CraneModal.show({
-          title: 'Add Contact',
-          content: `
-            <div id="add-contact-form">
-              <div id="contact-phone"></div>
-              <div id="contact-username"></div>
-            </div>
-          `,
-          primaryBtn: { 
-            label: 'Add', 
-            onClick: () => {
-              console.log('Add contact');
+        document.getElementById('tabbar-mount').appendChild(tabBar.render());
+
+        // 2. Мок-данные контактов (отсортированные по алфавиту)
+        const allContacts = [
+            { id: 1, name: 'Александр', status: 'в сети', online: true, letter: 'А' },
+            { id: 4, name: 'Анна', status: 'была 5 минут назад', online: false, letter: 'А' },
+            { id: 3, name: 'Дмитрий', status: 'в сети', online: true, letter: 'Д' },
+            { id: 2, name: 'Илон Маск', status: 'был недавно', online: false, letter: 'И' }
+        ];
+
+        const listContainer = document.getElementById('contacts-list');
+        const searchInput = document.getElementById('search-contacts');
+        const emptyState = document.getElementById('empty-results');
+
+        function renderContacts(data) {
+            listContainer.innerHTML = '';
+            let lastLetter = '';
+
+            if (data.length === 0) {
+                emptyState.style.display = 'block';
+                return;
             }
-          }
-        });
-      });
-    });
-  </script>
+            emptyState.style.display = 'none';
+
+            data.forEach(contact => {
+                // Добавляем разделитель буквы
+                if (contact.letter !== lastLetter) {
+                    const letterDiv = document.createElement('div');
+                    letterDiv.className = 'alphabet-label';
+                    letterDiv.textContent = contact.letter;
+                    listContainer.appendChild(letterDiv);
+                    lastLetter = contact.letter;
+                }
+
+                // Создаем строку контакта
+                const row = document.createElement('div');
+                row.className = 'contact-row';
+                row.onclick = () => window.location.href = `contactProfile.html?id=${contact.id}`;
+                row.innerHTML = `
+                    <img src="https://i.pravatar.cc/150?u=${contact.id}" class="contact-img" alt="avatar">
+                    <div class="contact-details">
+                        <span class="contact-name">${contact.name}</span>
+                        <span class="contact-status ${contact.online ? 'online' : ''}">${contact.status}</span>
+                    </div>
+                `;
+                listContainer.appendChild(row);
+            });
+        }
+
+        // 3. Логика живого поиска
+        searchInput.oninput = (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = allContacts.filter(c => 
+                c.name.toLowerCase().includes(query)
+            );
+            renderContacts(filtered);
+        };
+
+        renderContacts(allContacts);
+    </script>
 </body>
 </html>
