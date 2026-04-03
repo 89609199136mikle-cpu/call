@@ -1,129 +1,89 @@
+import { authStore } from '../store/authStore.js';
+
 /**
- * CraneApp Auth Hook
- * Telegram-style authentication state management
- * Railway-ready, PWA-compatible
+ * Хук для управления авторизацией в Craneapp.
+ * Инкапсулирует логику запросов к API и обновление локального состояния.
  */
+export const useAuth = () => {
+    // Базовый URL вашего бэкенда на Railway
+    const API_URL = window.location.hostname === 'localhost' 
+        ? 'http://localhost:5000/api/auth' 
+        : 'https://craneapp-production.up.railway.app/api/auth';
 
-export function useAuth() {
-  const auth = {
-    user: null,
-    token: null,
-    isLoading: false,
-    isAuthenticated: false
-  };
+    /**
+     * Регистрация нового пользователя
+     * @param {Object} userData - { phone, password, name, username }
+     */
+    const register = async (userData) => {
+        try {
+            const response = await fetch(`${API_URL}/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(userData)
+            });
 
-  // Initialize auth state
-  function init() {
-    const token = localStorage.getItem('crane_token');
-    const userData = localStorage.getItem('crane_user');
-    
-    if (token && userData) {
-      auth.token = token;
-      auth.user = JSON.parse(userData);
-      auth.isAuthenticated = true;
-    }
-  }
+            const data = await response.json();
 
-  // Login handler
-  async function login(credentials) {
-    auth.isLoading = true;
-    
-    try {
-      // Mock API call (replace with real authApi.login)
-      const response = await new Promise(resolve => {
-        setTimeout(() => {
-          resolve({
-            success: true,
-            token: 'mock-jwt-token-12345',
-            user: {
-              id: 1,
-              name: credentials.identifier || 'John Doe',
-              username: '@johndoe',
-              phone: credentials.identifier || '+7 999 123-45-67',
-              avatar: null
-            }
-          });
-        }, 1500);
-      });
-      
-      if (response.success) {
-        auth.token = response.token;
-        auth.user = response.user;
-        auth.isAuthenticated = true;
-        
-        localStorage.setItem('crane_token', response.token);
-        localStorage.setItem('crane_user', JSON.stringify(response.user));
-        
-        window.dispatchEvent(new CustomEvent('auth:login', { 
-          detail: response.user 
-        }));
-      }
-      
-      return response;
-    } finally {
-      auth.isLoading = false;
-    }
-  }
+            if (!response.ok) throw new Error(data.message || 'Ошибка регистрации');
 
-  // Logout handler
-  function logout() {
-    auth.user = null;
-    auth.token = null;
-    auth.isAuthenticated = false;
-    
-    localStorage.removeItem('crane_token');
-    localStorage.removeItem('crane_user');
-    
-    window.dispatchEvent(new CustomEvent('auth:logout'));
-    window.location.hash = '/auth/login';
-  }
+            // Сохраняем данные в Store
+            authStore.setToken(data.token);
+            authStore.setUser(data.user);
 
-  // Get current user
-  function getUser() {
-    return auth.user;
-  }
+            return { success: true, user: data.user };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
 
-  // Check auth status
-  function isAuth() {
-    return auth.isAuthenticated;
-  }
+    /**
+     * Вход в систему
+     * @param {string} phone 
+     * @param {string} password 
+     */
+    const login = async (phone, password) => {
+        try {
+            const response = await fetch(`${API_URL}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, password })
+            });
 
-  // Get auth token for API calls
-  function getToken() {
-    return auth.token;
-  }
+            const data = await response.json();
 
-  // Set session manually
-  function setSession(token, user) {
-    auth.token = token;
-    auth.user = user;
-    auth.isAuthenticated = true;
-    
-    localStorage.setItem('crane_token', token);
-    localStorage.setItem('crane_user', JSON.stringify(user));
-  }
+            if (!response.ok) throw new Error(data.message || 'Неверный логин или пароль');
 
-  init();
+            authStore.setToken(data.token);
+            authStore.setUser(data.user);
 
-  // Expose auth methods globally for screens
-  window.AuthProvider = {
-    login,
-    logout,
-    getUser,
-    isAuth,
-    getToken,
-    setSession,
-    state: auth
-  };
+            return { success: true, user: data.user };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
 
-  return {
-    user: auth.user,
-    isLoading: () => auth.isLoading,
-    isAuthenticated: () => auth.isAuthenticated,
-    login,
-    logout,
-    getUser,
-    isAuth,
-    getToken
-  };
-}
+    /**
+     * Выход из системы
+     */
+    const logout = () => {
+        authStore.clear();
+        window.location.href = '../auth/login.html';
+    };
+
+    /**
+     * Проверка, авторизован ли пользователь
+     */
+    const isAuthenticated = () => {
+        const token = authStore.getToken();
+        const user = authStore.getUser();
+        return !!(token && user);
+    };
+
+    return {
+        register,
+        login,
+        logout,
+        isAuthenticated,
+        user: authStore.getUser()
+    };
+};
