@@ -7,172 +7,383 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+  cors: { origin: '*', methods: ['GET', 'POST'] },
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Хранилище пользователей
-const users = new Map(); // socketId -> { username, userId }
-const userSockets = new Map(); // userId -> socketId
-const waitingCalls = new Map(); // callerId -> { targetId, type }
+// ── Хранилище ──────────────────────────────────────────────
+const users       = new Map(); // socketId → { username, userId, status }
+const userSockets = new Map(); // userId   → socketId
+const groups      = new Map(); // groupId  → { name, hostId, participants[], waiting[], chat[] }
+const callSessions = new Map(); // callId  → { participants, startTime }
 
-// Регистрация пользователя
+// ── ICE / TURN конфигурация (бесплатный OpenRelay TURN) ────
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  {
+    urls: 'turn:openrelay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
+];
+
+// ── REST API ────────────────────────────────────────────────
+
+// Получить ICE конфигурацию
+app.get('/api/ice-config', (req, res) => {
+  res.json({ iceServers: ICE_SERVERS });
+});
+
+// Регистрация пользователя (HTTP)
 app.post('/api/register', (req, res) => {
   const { username, userId } = req.body;
-  if (!username || !userId) {
-    return res.status(400).json({ error: 'Username and userId required' });
-  }
-  res.json({ success: true, message: 'Registered successfully' });
+  if (!username || !userId) return res.status(400).json({ error: 'username and userId required' });
+  res.json({ success: true });
 });
 
-// Получение списка пользователей
+// Список онлайн-пользователей
 app.get('/api/users', (req, res) => {
-  const userList = Array.from(userSockets.entries()).map(([id, socketId]) => ({
-    userId: id,
+  const list = Array.from(userSockets.entries()).map(([userId, socketId]) => ({
+    userId,
     username: users.get(socketId)?.username || 'Unknown',
-    online: true
+    status: users.get(socketId)?.status || 'online'
   }));
-  res.json(userList);
+  res.json(list);
 });
 
-// WebSocket сигналинг
+// Страница звонка (call.html из корня)
+app.get('/call', (req, res) => {
+  res.sendFile(path.join(__dirname, 'call.html'));
+});
+
+// ── Socket.IO ───────────────────────────────────────────────
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
-  
-  // Регистрация пользователя
-  socket.on('register', (data) => {
-    const { username, userId } = data;
-    users.set(socket.id, { username, userId });
+  console.log('[socket] connect', socket.id);
+
+  // ─── РЕГИСТРАЦИЯ ───────────────────────────────────────────
+  socket.on('register', ({ username, userId }) => {
+    // Если у этого userId уже есть старый сокет — удаляем
+    const oldSocketId = userSockets.get(userId);
+    if (oldSocketId && oldSocketId !== socket.id) {
+      users.delete(oldSocketId);
+    }
+
+    users.set(socket.id, { username, userId, status: 'online' });
     userSockets.set(userId, socket.id);
-    socket.userId = userId;
+    socket.userId   = userId;
     socket.username = username;
-    
-    // Рассылаем обновлённый список пользователей
+
     broadcastUserList();
-    console.log(`User registered: ${username} (${userId})`);
+    console.log(`[register] ${username} (${userId})`);
   });
-  
-  // Начать звонок
-  socket.on('call-user', (data) => {
-    const { targetId, callType } = data;
+
+  // ─── СТАТУС (online / busy / away) ──────────────────────────
+  socket.on('set-status', ({ status }) => {
+    const u = users.get(socket.id);
+    if (u) { u.status = status; broadcastUserList(); }
+  });
+
+  // ─── ЛИЧНЫЙ ЗВОНОК ──────────────────────────────────────────
+  socket.on('call-user', ({ targetId, callType }) => {
     const targetSocketId = userSockets.get(targetId);
-    
     if (targetSocketId && io.sockets.sockets.get(targetSocketId)) {
-      waitingCalls.set(socket.userId, { targetId, callType });
-      
       io.to(targetSocketId).emit('incoming-call', {
         from: socket.userId,
         fromName: socket.username,
-        callType: callType
+        callType
       });
-      
-      console.log(`Call from ${socket.username} to ${targetId}`);
+      // Ставим статус "занят"
+      const u = users.get(socket.id);
+      if (u) { u.status = 'busy'; broadcastUserList(); }
     } else {
       socket.emit('call-error', { message: 'User is offline' });
     }
   });
-  
-  // Принять звонок
-  socket.on('accept-call', (data) => {
-    const { fromId } = data;
+
+  socket.on('accept-call', ({ fromId }) => {
     const callerSocketId = userSockets.get(fromId);
-    
     if (callerSocketId) {
       io.to(callerSocketId).emit('call-accepted', {
         targetId: socket.userId,
         targetName: socket.username
       });
+      const u = users.get(socket.id);
+      if (u) { u.status = 'busy'; broadcastUserList(); }
     }
   });
-  
-  // Отклонить звонок
-  socket.on('reject-call', (data) => {
-    const { fromId } = data;
+
+  socket.on('reject-call', ({ fromId }) => {
     const callerSocketId = userSockets.get(fromId);
-    
     if (callerSocketId) {
-      io.to(callerSocketId).emit('call-rejected', {
-        message: 'User rejected the call'
-      });
+      io.to(callerSocketId).emit('call-rejected');
     }
+    const u = users.get(socket.id);
+    if (u) { u.status = 'online'; broadcastUserList(); }
   });
-  
-  // WebRTC сигналинг
-  socket.on('offer', (data) => {
-    const { targetId, offer } = data;
+
+  socket.on('end-call', ({ targetId }) => {
     const targetSocketId = userSockets.get(targetId);
-    
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('offer', {
-        from: socket.userId,
-        offer: offer
+    if (targetSocketId) io.to(targetSocketId).emit('call-ended');
+    // Возвращаем статус
+    [socket.userId, targetId].forEach(uid => {
+      const sid = userSockets.get(uid);
+      if (sid) { const u = users.get(sid); if (u) u.status = 'online'; }
+    });
+    broadcastUserList();
+  });
+
+  // ─── WebRTC СИГНАЛИНГ (личный) ──────────────────────────────
+  socket.on('offer', ({ targetId, offer }) => {
+    const sid = userSockets.get(targetId);
+    if (sid) io.to(sid).emit('offer', { from: socket.userId, offer });
+  });
+
+  socket.on('answer', ({ targetId, answer }) => {
+    const sid = userSockets.get(targetId);
+    if (sid) io.to(sid).emit('answer', { from: socket.userId, answer });
+  });
+
+  socket.on('ice-candidate', ({ targetId, candidate }) => {
+    const sid = userSockets.get(targetId);
+    if (sid) io.to(sid).emit('ice-candidate', { from: socket.userId, candidate });
+  });
+
+  // ─── ГРУППОВЫЕ ЗВОНКИ ────────────────────────────────────────
+  socket.on('create-group', ({ groupName, groupId }) => {
+    if (!groups.has(groupId)) {
+      groups.set(groupId, {
+        name: groupName,
+        hostId: socket.userId,
+        participants: [{ userId: socket.userId, username: socket.username }],
+        waiting: [],
+        chat: [],
+        startTime: Date.now()
       });
     }
+    socket.join(`group:${groupId}`);
+    socket.groupId = groupId;
+    socket.emit('group-created', { groupId });
+    const u = users.get(socket.id);
+    if (u) { u.status = 'busy'; broadcastUserList(); }
+    console.log(`[group-create] ${groupName} by ${socket.username}`);
   });
-  
-  socket.on('answer', (data) => {
-    const { targetId, answer } = data;
-    const targetSocketId = userSockets.get(targetId);
-    
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('answer', {
-        from: socket.userId,
-        answer: answer
+
+  socket.on('join-group-request', ({ groupId }) => {
+    const group = groups.get(groupId);
+    if (!group) { socket.emit('group-not-found'); return; }
+
+    // Если уже участник — допускаем сразу
+    if (group.participants.find(p => p.userId === socket.userId)) {
+      socket.join(`group:${groupId}`);
+      socket.groupId = groupId;
+      socket.emit('admitted-to-group', {
+        groupId,
+        hostId: group.hostId,
+        participants: group.participants,
+        chat: group.chat
       });
+      return;
     }
+
+    // Добавляем в зал ожидания
+    if (!group.waiting.find(w => w.userId === socket.userId)) {
+      group.waiting.push({ userId: socket.userId, username: socket.username, socketId: socket.id });
+    }
+
+    // Уведомляем хоста
+    const hostSid = userSockets.get(group.hostId);
+    if (hostSid) {
+      io.to(hostSid).emit('waiting-list-update', { waiting: group.waiting.map(w => ({ userId: w.userId, username: w.username })) });
+    }
+    socket.emit('waiting-for-admission', { groupName: group.name });
   });
-  
-  socket.on('ice-candidate', (data) => {
-    const { targetId, candidate } = data;
-    const targetSocketId = userSockets.get(targetId);
-    
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('ice-candidate', {
-        from: socket.userId,
-        candidate: candidate
+
+  socket.on('admit-participant', ({ groupId, userId }) => {
+    const group = groups.get(groupId);
+    if (!group || group.hostId !== socket.userId) return;
+
+    const idx = group.waiting.findIndex(w => w.userId === userId);
+    if (idx === -1) return;
+
+    const [participant] = group.waiting.splice(idx, 1);
+    group.participants.push({ userId: participant.userId, username: participant.username });
+
+    const pSid = userSockets.get(userId);
+    if (pSid) {
+      io.to(pSid).emit('admitted-to-group', {
+        groupId,
+        hostId: group.hostId,
+        participants: group.participants,
+        chat: group.chat
       });
+      const s = io.sockets.sockets.get(pSid);
+      if (s) { s.join(`group:${groupId}`); s.groupId = groupId; }
+      const u = users.get(pSid); if (u) u.status = 'busy';
     }
+
+    io.to(`group:${groupId}`).emit('group-participants-update', { participants: group.participants });
+    const hostSid = userSockets.get(group.hostId);
+    if (hostSid) io.to(hostSid).emit('waiting-list-update', { waiting: group.waiting.map(w => ({ userId: w.userId, username: w.username })) });
+    broadcastUserList();
   });
-  
-  // Завершить звонок
-  socket.on('end-call', (data) => {
-    const { targetId } = data;
-    const targetSocketId = userSockets.get(targetId);
-    
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('call-ended', {
-        from: socket.userId
-      });
+
+  socket.on('reject-participant', ({ groupId, userId }) => {
+    const group = groups.get(groupId);
+    if (!group || group.hostId !== socket.userId) return;
+    group.waiting = group.waiting.filter(w => w.userId !== userId);
+    const pSid = userSockets.get(userId);
+    if (pSid) io.to(pSid).emit('rejected-from-group');
+    const hostSid = userSockets.get(group.hostId);
+    if (hostSid) io.to(hostSid).emit('waiting-list-update', { waiting: group.waiting.map(w => ({ userId: w.userId, username: w.username })) });
+  });
+
+  socket.on('leave-group', ({ groupId }) => {
+    const group = groups.get(groupId);
+    if (group) {
+      group.participants = group.participants.filter(p => p.userId !== socket.userId);
+      socket.leave(`group:${groupId}`);
+
+      if (group.hostId === socket.userId && group.participants.length > 0) {
+        // Передаём хост следующему участнику
+        group.hostId = group.participants[0].userId;
+        io.to(`group:${groupId}`).emit('host-changed', { newHostId: group.hostId });
+      }
+
+      if (group.participants.length === 0) {
+        groups.delete(groupId);
+      } else {
+        io.to(`group:${groupId}`).emit('group-participants-update', { participants: group.participants });
+      }
     }
+    const u = users.get(socket.id); if (u) u.status = 'online';
+    broadcastUserList();
   });
-  
-  // Отключение пользователя
+
+  // ─── WebRTC СИГНАЛИНГ (групповой) ───────────────────────────
+  socket.on('group-offer', ({ groupId, targetId, offer }) => {
+    const sid = userSockets.get(targetId);
+    if (sid) io.to(sid).emit('group-offer', { from: socket.userId, fromName: socket.username, offer });
+  });
+
+  socket.on('group-answer', ({ groupId, targetId, answer }) => {
+    const sid = userSockets.get(targetId);
+    if (sid) io.to(sid).emit('group-answer', { from: socket.userId, answer });
+  });
+
+  socket.on('group-ice', ({ groupId, targetId, candidate }) => {
+    const sid = userSockets.get(targetId);
+    if (sid) io.to(sid).emit('group-ice', { from: socket.userId, candidate });
+  });
+
+  // Хост завершает групповой звонок для всех
+  socket.on('end-group-call', ({ groupId }) => {
+    const group = groups.get(groupId);
+    if (!group || group.hostId !== socket.userId) return;
+    io.to(`group:${groupId}`).emit('call-ended');
+    // Возвращаем статус всем участникам
+    group.participants.forEach(p => {
+      const sid = userSockets.get(p.userId);
+      if (sid) { const u = users.get(sid); if (u) u.status = 'online'; }
+    });
+    groups.delete(groupId);
+    broadcastUserList();
+  });
+
+  // ─── Поднять руку ─────────────────────────────────────────────
+  socket.on('raise-hand', ({ groupId }) => {
+    io.to(`group:${groupId}`).emit('hand-raised', {
+      userId: socket.userId,
+      username: socket.username
+    });
+  });
+
+  // ─── Чат в групповом звонке ────────────────────────────────
+  socket.on('group-chat-message', ({ groupId, message }) => {
+    const group = groups.get(groupId);
+    if (!group) return;
+    const msg = { userId: socket.userId, username: socket.username, message, time: Date.now() };
+    group.chat.push(msg);
+    if (group.chat.length > 200) group.chat.shift();
+    io.to(`group:${groupId}`).emit('group-chat-message', msg);
+  });
+
+  // ─── Демонстрация экрана (групповой) ──────────────────────
+  socket.on('screen-share-offer', ({ groupId, targetId, offer }) => {
+    const sid = userSockets.get(targetId);
+    if (sid) io.to(sid).emit('screen-share-offer', { from: socket.userId, offer });
+  });
+
+  socket.on('screen-share-answer', ({ groupId, targetId, answer }) => {
+    const sid = userSockets.get(targetId);
+    if (sid) io.to(sid).emit('screen-share-answer', { from: socket.userId, answer });
+  });
+
+  // Уведомление об изменении экранного шеринга
+  socket.on('screen-share-started', ({ groupId }) => {
+    socket.to(`group:${groupId}`).emit('screen-share-started', { userId: socket.userId, username: socket.username });
+  });
+
+  socket.on('screen-share-stopped', ({ groupId }) => {
+    socket.to(`group:${groupId}`).emit('screen-share-stopped', { userId: socket.userId });
+  });
+
+  // ─── ОТКЛЮЧЕНИЕ ───────────────────────────────────────────────
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+    console.log('[socket] disconnect', socket.id, socket.userId);
     if (socket.userId) {
       userSockets.delete(socket.userId);
       users.delete(socket.id);
+
+      // Убираем из групп
+      if (socket.groupId) {
+        const group = groups.get(socket.groupId);
+        if (group) {
+          group.participants = group.participants.filter(p => p.userId !== socket.userId);
+          if (group.hostId === socket.userId && group.participants.length > 0) {
+            group.hostId = group.participants[0].userId;
+            io.to(`group:${socket.groupId}`).emit('host-changed', { newHostId: group.hostId });
+          }
+          if (group.participants.length === 0) {
+            groups.delete(socket.groupId);
+          } else {
+            io.to(`group:${socket.groupId}`).emit('group-participants-update', { participants: group.participants });
+          }
+        }
+      }
+
       broadcastUserList();
     }
   });
 });
 
+// ── Утилиты ─────────────────────────────────────────────────
 function broadcastUserList() {
-  const userList = Array.from(userSockets.entries()).map(([userId, socketId]) => ({
-    userId: userId,
+  const list = Array.from(userSockets.entries()).map(([userId, socketId]) => ({
+    userId,
     username: users.get(socketId)?.username || 'Unknown',
-    online: true
+    status:   users.get(socketId)?.status   || 'online'
   }));
-  io.emit('user-list', userList);
+  io.emit('user-list', list);
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 CraneCall server running on port ${PORT}`);
 });
