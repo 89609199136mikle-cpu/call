@@ -357,13 +357,8 @@ body {
       ID нечувствителен к регистру.
     </div>
 
-    <!-- БЫСТРЫЙ ТЕСТ -->
-    <div class="test-badge" id="testMode1" onclick="quickLogin('Тест1','test1')">
-      ⚡ Быстрый тест: Test1
-    </div>
-    <div class="test-badge" id="testMode2" onclick="quickLogin('Тест2','test2')" style="margin-left:8px;">
-      ⚡ Быстрый тест: Test2
-    </div>
+    <div class="test-badge" onclick="quickLogin('Тест1','test1')">⚡ Быстрый тест: Test1</div>
+    <div class="test-badge" onclick="quickLogin('Тест2','test2')" style="margin-left:8px;">⚡ Быстрый тест: Test2</div>
   </div>
 </div>
 
@@ -413,6 +408,7 @@ body {
             <span class="icon">🎙️</span>
             Создайте группу или войдите в существующую
           </div>
+          <div id="groupsList"></div>
         </div>
       </div>
     </aside>
@@ -442,166 +438,173 @@ body {
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 //  GLOBALS
-// ═══════════════════════════════════════════════════
-let socket     = null;
+// ═══════════════════════════════════════════════════════════════
+let socket = null;
 let currentUser = null;
-let iceServers = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' }
-];
+let iceServers = null;
+let incomingRingInterval = null;
+let groupsList = [];
 
-// Звук входящего звонка
-let ringAudio = null;
-function startRing() {
-  try {
-    const ctx = new AudioContext();
-    function beep() {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.connect(g); g.connect(ctx.destination);
-      o.frequency.value = 440; o.type = 'sine';
-      g.gain.setValueAtTime(0.3, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
-      o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.6);
-    }
-    beep();
-    ringAudio = setInterval(beep, 1400);
-  } catch(e) {}
+// DOM elements
+const authOverlay = document.getElementById('authOverlay');
+const appContainer = document.getElementById('app');
+const registerBtn = document.getElementById('registerBtn');
+const usersListDiv = document.getElementById('usersList');
+const groupsListDiv = document.getElementById('groupsList');
+const emptyUsers = document.getElementById('emptyUsers');
+const emptyGroups = document.getElementById('emptyGroups');
+const headerUsername = document.getElementById('headerUsername');
+const headerAvatar = document.getElementById('headerAvatar');
+const sidebar = document.getElementById('sidebar');
+
+// Helper
+function showToast(msg, type='') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
 }
-function stopRing() { if (ringAudio) { clearInterval(ringAudio); ringAudio = null; } }
 
-// ═══════════════════════════════════════════════════
-//  AUTH
-// ═══════════════════════════════════════════════════
+function escHtml(s) { return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+function toggleSidebar() { sidebar.classList.toggle('open'); }
+
+function switchTab(tab) {
+  document.getElementById('tabUsers').classList.toggle('active', tab === 'users');
+  document.getElementById('tabGroups').classList.toggle('active', tab === 'groups');
+  document.getElementById('usersPanel').classList.toggle('hidden', tab !== 'users');
+  document.getElementById('groupsPanel').classList.toggle('hidden', tab !== 'groups');
+  if (tab === 'groups' && groupsList.length === 0) loadGroups();
+}
+
 function quickLogin(name, id) {
   document.getElementById('regUsername').value = name;
   document.getElementById('regUserId').value = id;
-  document.getElementById('registerBtn').click();
+  registerBtn.click();
 }
 
-document.getElementById('registerBtn').addEventListener('click', async () => {
-  const username = document.getElementById('regUsername').value.trim();
-  const userId   = document.getElementById('regUserId').value.trim().toLowerCase();
-  if (!username || !userId) { showToast('Заполните все поля', 'error'); return; }
-
-  currentUser = { username, userId };
-  await fetch('/api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,userId}) });
-
-  // Загрузить ICE конфигурацию
+// ─── Fetch ICE config from server ─────────────────────────
+async function fetchIceConfig() {
   try {
-    const r = await fetch('/api/ice-config');
-    const d = await r.json();
-    iceServers = d.iceServers;
-  } catch(e) {}
+    const res = await fetch('/api/ice-config');
+    const data = await res.json();
+    iceServers = data.iceServers || [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ];
+  } catch(e) {
+    iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+  }
+}
 
-  socket = io({ transports:['websocket','polling'] });
+// ─── REGISTRATION ─────────────────────────────────────────
+registerBtn.addEventListener('click', async () => {
+  const username = document.getElementById('regUsername').value.trim();
+  let userId = document.getElementById('regUserId').value.trim().toLowerCase();
+  if (!username || !userId) { showToast('Заполните все поля', 'error'); return; }
+  currentUser = { username, userId };
+  await fetchIceConfig();
+  const resp = await fetch('/api/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, userId })
+  });
+  if (!resp.ok) { showToast('Ошибка регистрации', 'error'); return; }
+
+  socket = io({ transports: ['websocket', 'polling'] });
   socket.on('connect', () => {
     socket.emit('register', { username, userId });
-    console.log('[socket] connected');
   });
   setupSocketListeners();
 
-  document.getElementById('authOverlay').classList.add('hidden');
-  document.getElementById('app').classList.remove('hidden');
-  document.getElementById('headerUsername').textContent = username;
-  document.getElementById('headerAvatar').textContent = username[0].toUpperCase();
-
-  // Запрос уведомлений
-  if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
-  }
+  authOverlay.classList.add('hidden');
+  appContainer.classList.remove('hidden');
+  headerUsername.textContent = username;
+  headerAvatar.textContent = username[0].toUpperCase();
 });
 
-// ═══════════════════════════════════════════════════
-//  SOCKET LISTENERS
-// ═══════════════════════════════════════════════════
+// ─── SOCKET HANDLERS ──────────────────────────────────────
 function setupSocketListeners() {
   socket.on('user-list', renderUsers);
   socket.on('incoming-call', showIncomingCall);
   socket.on('call-error', ({ message }) => showToast(message, 'error'));
-  socket.on('call-rejected', () => { showToast('Звонок отклонён', 'error'); stopRing(); });
-  socket.on('call-ended',   () => { showToast('Звонок завершён'); stopRing(); });
+  socket.on('call-rejected', () => showToast('Звонок отклонён', 'error'));
+  socket.on('call-ended', () => showToast('Звонок завершён'));
+
+  // Groups
+  socket.on('group-list', (groups) => {
+    groupsList = groups;
+    renderGroups(groups);
+  });
+  socket.on('group-created', ({ groupId }) => {
+    showToast('Группа создана', 'success');
+    loadGroups();
+  });
+  socket.on('admitted-to-group', () => {
+    showToast('Вас пустили в группу', 'success');
+  });
+  socket.on('rejected-from-group', () => {
+    showToast('Вас не пустили в группу', 'error');
+  });
+  socket.on('group-participants-update', () => {});
 }
 
-// ═══════════════════════════════════════════════════
-//  USERS LIST
-// ═══════════════════════════════════════════════════
+// ─── RENDER USERS (ONLY VIDEO CALL BUTTON) ────────────────
 function renderUsers(users) {
-  const me = currentUser?.userId;
+  const me = currentUser.userId;
   const others = users.filter(u => u.userId !== me);
-  const el = document.getElementById('usersList');
-  const empty = document.getElementById('emptyUsers');
-
-  if (!others.length) { empty.style.display='block'; el.innerHTML=''; return; }
-  empty.style.display = 'none';
-
-  el.innerHTML = others.map(u => {
+  if (!others.length) {
+    emptyUsers.style.display = 'block';
+    usersListDiv.innerHTML = '';
+    return;
+  }
+  emptyUsers.style.display = 'none';
+  usersListDiv.innerHTML = others.map(u => {
     const letter = u.username[0].toUpperCase();
-    const busy   = u.status === 'busy';
-    const statusLabel = busy ? '🔴 Занят' : '🟢 Онлайн';
+    const busy = u.status === 'busy';
     return `
-    <div class="user-card">
-      <div class="uc-avatar">${letter}<span class="status-dot${busy?' busy':''}"></span></div>
-      <div class="uc-info">
-        <div class="uc-name">${escHtml(u.username)}</div>
-        <div class="uc-status">${statusLabel}</div>
+      <div class="user-card">
+        <div class="uc-avatar">${letter}<span class="status-dot${busy ? ' busy' : ''}"></span></div>
+        <div class="uc-info">
+          <div class="uc-name">${escHtml(u.username)}</div>
+          <div class="uc-status">${busy ? '🔴 Занят' : '🟢 Онлайн'}</div>
+        </div>
+        <div class="uc-actions">
+          <button class="uc-btn video" title="Видеозвонок" onclick="startCall('${u.userId}', '${escHtml(u.username)}', 'video')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          </button>
+        </div>
       </div>
-      <div class="uc-actions">
-        <button class="uc-btn" title="Аудиозвонок" onclick="initiateCall('${u.userId}','${escHtml(u.username)}','audio')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.5a19.79 19.79 0 01-3.07-8.67A2 2 0 012.18 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 8.35a16 16 0 006.72 6.72l1.71-1.71a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
-          </svg>
-        </button>
-        <button class="uc-btn video" title="Видеозвонок" onclick="initiateCall('${u.userId}','${escHtml(u.username)}','video')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-          </svg>
-        </button>
-      </div>
-    </div>`;
+    `;
   }).join('');
 }
 
-// ═══════════════════════════════════════════════════
-//  INITIATE CALL  →  открываем call.html
-// ═══════════════════════════════════════════════════
-function initiateCall(targetId, targetName, callType) {
+// ─── START CALL (PERSONAL) ────────────────────────────────
+window.startCall = (targetId, targetName, callType) => {
   socket.emit('call-user', { targetId, callType });
-
-  // Передаём данные через localStorage — call.html подхватит
-  localStorage.setItem('callData', JSON.stringify({
+  const callData = {
     type: 'personal',
-    myUserId:   currentUser.userId,
+    myUserId: currentUser.userId,
     myUsername: currentUser.username,
     targetId,
     targetName,
     callType,
     isIncoming: false,
     iceServers
-  }));
+  };
+  localStorage.setItem('callData', JSON.stringify(callData));
+  window.open('/call.html', '_blank', 'width=1000,height=700');
+};
 
-  window.open('/call', '_blank', 'width=900,height=650');
-}
-
-// ═══════════════════════════════════════════════════
-//  INCOMING CALL POPUP
-// ═══════════════════════════════════════════════════
+// ─── INCOMING CALL POPUP ──────────────────────────────────
 function showIncomingCall({ from, fromName, callType }) {
-  stopRing(); startRing();
-
-  // Push-уведомление
   if (Notification.permission === 'granted') {
-    new Notification(`📞 Входящий звонок от ${fromName}`, {
-      body: callType === 'video' ? 'Видеозвонок' : 'Аудиозвонок',
-      icon: '/favicon.ico'
-    });
+    new Notification(`📞 Входящий звонок от ${fromName}`, { body: callType === 'video' ? 'Видеозвонок' : 'Аудиозвонок' });
   }
-
-  // Удаляем старые попапы
   document.querySelectorAll('.incoming-popup').forEach(el => el.remove());
-
   const popup = document.createElement('div');
   popup.className = 'incoming-popup';
   popup.innerHTML = `
@@ -613,100 +616,113 @@ function showIncomingCall({ from, fromName, callType }) {
       </div>
     </div>
     <div class="ip-actions">
-      <button class="ip-btn reject" id="rejectBtn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-        Отклонить
-      </button>
-      <button class="ip-btn accept" id="acceptBtn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16">
-          <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.5a19.79 19.79 0 01-3.07-8.67A2 2 0 012.18 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 8.35a16 16 0 006.72 6.72l1.71-1.71a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
-        </svg>
-        Ответить
-      </button>
+      <button class="ip-btn reject"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Отклонить</button>
+      <button class="ip-btn accept"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.5a19.79 19.79 0 01-3.07-8.67A2 2 0 012.18 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 8.35a16 16 0 006.72 6.72l1.71-1.71a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg> Ответить</button>
     </div>
   `;
   document.body.appendChild(popup);
-
-  popup.querySelector('#rejectBtn').onclick = () => {
-    socket.emit('reject-call', { fromId: from });
-    stopRing(); popup.remove();
-  };
-  popup.querySelector('#acceptBtn').onclick = () => {
-    stopRing();
-    localStorage.setItem('callData', JSON.stringify({
+  const acceptBtn = popup.querySelector('.accept');
+  const rejectBtn = popup.querySelector('.reject');
+  acceptBtn.onclick = () => {
+    popup.remove();
+    socket.emit('accept-call', { fromId: from });
+    const callData = {
       type: 'personal',
-      myUserId:   currentUser.userId,
+      myUserId: currentUser.userId,
       myUsername: currentUser.username,
       targetId: from,
       targetName: fromName,
       callType,
       isIncoming: true,
       iceServers
-    }));
-    socket.emit('accept-call', { fromId: from });
-    window.open('/call', '_blank', 'width=900,height=650');
-    popup.remove();
+    };
+    localStorage.setItem('callData', JSON.stringify(callData));
+    window.open('/call.html', '_blank', 'width=1000,height=700');
   };
-
-  // Автоотклонение через 30 сек
+  rejectBtn.onclick = () => {
+    popup.remove();
+    socket.emit('reject-call', { fromId: from });
+  };
   setTimeout(() => {
-    if (document.body.contains(popup)) {
-      socket.emit('reject-call', { fromId: from });
-      stopRing(); popup.remove();
-    }
+    if (popup.parentNode) rejectBtn.click();
   }, 30000);
 }
 
-// ═══════════════════════════════════════════════════
-//  ГРУППЫ
-// ═══════════════════════════════════════════════════
-function switchTab(tab) {
-  document.getElementById('tabUsers').classList.toggle('active', tab === 'users');
-  document.getElementById('tabGroups').classList.toggle('active', tab === 'groups');
-  document.getElementById('usersPanel').classList.toggle('hidden', tab !== 'users');
-  document.getElementById('groupsPanel').classList.toggle('hidden', tab !== 'groups');
-}
-
-function openGroupModal()  { document.getElementById('groupModal').classList.remove('hidden'); }
+// ─── GROUPS ───────────────────────────────────────────────
+function openGroupModal() { document.getElementById('groupModal').classList.remove('hidden'); }
 function closeGroupModal() { document.getElementById('groupModal').classList.add('hidden'); }
 
 function createGroup() {
-  const name = document.getElementById('groupNameInput').value.trim();
-  if (!name) { showToast('Введите название группы', 'error'); return; }
-  const groupId = `grp_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;
-
-  socket.emit('create-group', { groupName: name, groupId });
-
-  localStorage.setItem('callData', JSON.stringify({
+  const groupName = document.getElementById('groupNameInput').value.trim();
+  if (!groupName) { showToast('Введите название группы', 'error'); return; }
+  const groupId = `grp_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+  socket.emit('create-group', { groupName, groupId });
+  const callData = {
     type: 'group',
-    myUserId:   currentUser.userId,
+    myUserId: currentUser.userId,
     myUsername: currentUser.username,
     groupId,
-    groupName: name,
+    groupName,
     isHost: true,
     iceServers
-  }));
-
+  };
+  localStorage.setItem('callData', JSON.stringify(callData));
   closeGroupModal();
-  window.open('/call', '_blank', 'width=900,height=700');
+  window.open('/call.html', '_blank', 'width=1000,height=700');
 }
 
-// ═══════════════════════════════════════════════════
-//  UI HELPERS
-// ═══════════════════════════════════════════════════
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
+function loadGroups() { socket.emit('get-groups'); }
+
+function renderGroups(groups) {
+  if (!groups.length) {
+    emptyGroups.style.display = 'block';
+    groupsListDiv.innerHTML = '';
+    return;
+  }
+  emptyGroups.style.display = 'none';
+  groupsListDiv.innerHTML = groups.map(g => `
+    <div class="user-card" style="margin:4px 8px;">
+      <div class="uc-avatar">👥</div>
+      <div class="uc-info">
+        <div class="uc-name">${escHtml(g.name)}</div>
+        <div class="uc-status">Участников: ${g.participants}</div>
+      </div>
+      <div class="uc-actions">
+        <button class="uc-btn video" onclick="joinGroup('${g.groupId}', '${escHtml(g.name)}')">🔊</button>
+      </div>
+    </div>
+  `).join('');
 }
-function showToast(msg, type='') {
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 3500);
-}
-function escHtml(s) { return s.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+window.joinGroup = (groupId, groupName) => {
+  socket.emit('join-group-request', { groupId });
+  const callData = {
+    type: 'group',
+    myUserId: currentUser.userId,
+    myUsername: currentUser.username,
+    groupId,
+    groupName,
+    isHost: false,
+    iceServers
+  };
+  localStorage.setItem('callData', JSON.stringify(callData));
+  window.open('/call.html', '_blank', 'width=1000,height=700');
+};
+
+// Auto-load groups on tab switch
+document.getElementById('tabGroups').addEventListener('click', () => {
+  if (groupsList.length === 0) loadGroups();
+});
+
+// Notification permission
+if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+
+// Close sidebar on outside click
+document.addEventListener('click', (e) => {
+  if (window.innerWidth <= 768 && !sidebar.contains(e.target) && !e.target.closest('.burger-btn')) {
+    sidebar.classList.remove('open');
+  }
+});
 </script>
 </body>
 </html>
