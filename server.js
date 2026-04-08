@@ -21,7 +21,7 @@ const users       = new Map(); // socketId → { username, userId, status }
 const userSockets = new Map(); // userId   → socketId
 const groups      = new Map(); // groupId  → { name, hostId, participants[], waiting[], chat[] }
 
-// ── ICE / TURN конфигурация (бесплатный OpenRelay TURN) ────
+// Бесплатные STUN/TURN серверы (openrelay)
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
@@ -50,7 +50,9 @@ app.get('/api/ice-config', (req, res) => {
 
 app.post('/api/register', (req, res) => {
   const { username, userId } = req.body;
-  if (!username || !userId) return res.status(400).json({ error: 'username and userId required' });
+  if (!username || !userId) {
+    return res.status(400).json({ error: 'Username and userId required' });
+  }
   res.json({ success: true });
 });
 
@@ -58,9 +60,13 @@ app.get('/api/users', (req, res) => {
   const list = Array.from(userSockets.entries()).map(([userId, socketId]) => ({
     userId,
     username: users.get(socketId)?.username || 'Unknown',
-    status: users.get(socketId)?.status || 'online'
+    status:   users.get(socketId)?.status   || 'online'
   }));
   res.json(list);
+});
+
+app.get('/call', (req, res) => {
+  res.sendFile(path.join(__dirname, 'call.html'));
 });
 
 // ── Socket.IO ───────────────────────────────────────────────
@@ -133,7 +139,7 @@ io.on('connection', (socket) => {
     broadcastUserList();
   });
 
-  // ─── WebRTC СИГНАЛИНГ (личный) ──────────────────────────────
+  // ─── WebRTC сигналинг (личный) ──────────────────────────────
   socket.on('offer', ({ targetId, offer }) => {
     const sid = userSockets.get(targetId);
     if (sid) io.to(sid).emit('offer', { from: socket.userId, offer });
@@ -157,8 +163,7 @@ io.on('connection', (socket) => {
         hostId: socket.userId,
         participants: [{ userId: socket.userId, username: socket.username }],
         waiting: [],
-        chat: [],
-        startTime: Date.now()
+        chat: []
       });
     }
     socket.join(`group:${groupId}`);
@@ -167,17 +172,6 @@ io.on('connection', (socket) => {
     const u = users.get(socket.id);
     if (u) { u.status = 'busy'; broadcastUserList(); }
     broadcastGroups();
-    console.log(`[group-create] ${groupName} by ${socket.username}`);
-  });
-
-  socket.on('get-groups', () => {
-    const list = Array.from(groups.entries()).map(([gid, g]) => ({
-      groupId: gid,
-      name: g.name,
-      participants: g.participants.length,
-      hostId: g.hostId
-    }));
-    socket.emit('group-list', list);
   });
 
   socket.on('join-group-request', ({ groupId }) => {
@@ -227,7 +221,6 @@ io.on('connection', (socket) => {
     const hostSid = userSockets.get(group.hostId);
     if (hostSid) io.to(hostSid).emit('waiting-list-update', { waiting: group.waiting.map(w => ({ userId: w.userId, username: w.username })) });
     broadcastUserList();
-    broadcastGroups();
   });
 
   socket.on('reject-participant', ({ groupId, userId }) => {
@@ -249,31 +242,28 @@ io.on('connection', (socket) => {
         group.hostId = group.participants[0].userId;
         io.to(`group:${groupId}`).emit('host-changed', { newHostId: group.hostId });
       }
-      if (group.participants.length === 0 && group.waiting.length === 0) {
+      if (group.participants.length === 0) {
         groups.delete(groupId);
       } else {
         io.to(`group:${groupId}`).emit('group-participants-update', { participants: group.participants });
       }
-      broadcastGroups();
     }
     const u = users.get(socket.id); if (u) u.status = 'online';
     broadcastUserList();
-  });
-
-  socket.on('end-group-call', ({ groupId }) => {
-    const group = groups.get(groupId);
-    if (!group || group.hostId !== socket.userId) return;
-    io.to(`group:${groupId}`).emit('call-ended');
-    group.participants.forEach(p => {
-      const sid = userSockets.get(p.userId);
-      if (sid) { const u = users.get(sid); if (u) u.status = 'online'; }
-    });
-    groups.delete(groupId);
     broadcastGroups();
-    broadcastUserList();
   });
 
-  // ─── WebRTC СИГНАЛИНГ (групповой) ───────────────────────────
+  socket.on('get-groups', () => {
+    const list = Array.from(groups.entries()).map(([gid, g]) => ({
+      groupId: gid,
+      name: g.name,
+      hostId: g.hostId,
+      participants: g.participants.length
+    }));
+    socket.emit('group-list', list);
+  });
+
+  // ─── WebRTC сигналинг (групповой) ───────────────────────────
   socket.on('group-offer', ({ groupId, targetId, offer }) => {
     const sid = userSockets.get(targetId);
     if (sid) io.to(sid).emit('group-offer', { from: socket.userId, fromName: socket.username, offer });
@@ -289,6 +279,20 @@ io.on('connection', (socket) => {
     if (sid) io.to(sid).emit('group-ice', { from: socket.userId, candidate });
   });
 
+  socket.on('end-group-call', ({ groupId }) => {
+    const group = groups.get(groupId);
+    if (!group || group.hostId !== socket.userId) return;
+    io.to(`group:${groupId}`).emit('call-ended');
+    group.participants.forEach(p => {
+      const sid = userSockets.get(p.userId);
+      if (sid) { const u = users.get(sid); if (u) u.status = 'online'; }
+    });
+    groups.delete(groupId);
+    broadcastUserList();
+    broadcastGroups();
+  });
+
+  // ─── Поднять руку ─────────────────────────────────────────────
   socket.on('raise-hand', ({ groupId }) => {
     io.to(`group:${groupId}`).emit('hand-raised', {
       userId: socket.userId,
@@ -296,6 +300,7 @@ io.on('connection', (socket) => {
     });
   });
 
+  // ─── Чат в группе ────────────────────────────────────────────
   socket.on('group-chat-message', ({ groupId, message }) => {
     const group = groups.get(groupId);
     if (!group) return;
@@ -305,15 +310,7 @@ io.on('connection', (socket) => {
     io.to(`group:${groupId}`).emit('group-chat-message', msg);
   });
 
-  socket.on('screen-share-started', ({ groupId }) => {
-    socket.to(`group:${groupId}`).emit('screen-share-started', { userId: socket.userId, username: socket.username });
-  });
-
-  socket.on('screen-share-stopped', ({ groupId }) => {
-    socket.to(`group:${groupId}`).emit('screen-share-stopped', { userId: socket.userId });
-  });
-
-  // ─── ОТКЛЮЧЕНИЕ ───────────────────────────────────────────────
+  // ─── Отключение ───────────────────────────────────────────────
   socket.on('disconnect', () => {
     console.log('[socket] disconnect', socket.id, socket.userId);
     if (socket.userId) {
@@ -327,19 +324,20 @@ io.on('connection', (socket) => {
             group.hostId = group.participants[0].userId;
             io.to(`group:${socket.groupId}`).emit('host-changed', { newHostId: group.hostId });
           }
-          if (group.participants.length === 0 && group.waiting.length === 0) {
+          if (group.participants.length === 0) {
             groups.delete(socket.groupId);
           } else {
             io.to(`group:${socket.groupId}`).emit('group-participants-update', { participants: group.participants });
           }
-          broadcastGroups();
         }
       }
       broadcastUserList();
+      broadcastGroups();
     }
   });
 });
 
+// ── Утилиты ─────────────────────────────────────────────────
 function broadcastUserList() {
   const list = Array.from(userSockets.entries()).map(([userId, socketId]) => ({
     userId,
@@ -353,8 +351,8 @@ function broadcastGroups() {
   const list = Array.from(groups.entries()).map(([gid, g]) => ({
     groupId: gid,
     name: g.name,
-    participants: g.participants.length,
-    hostId: g.hostId
+    hostId: g.hostId,
+    participants: g.participants.length
   }));
   io.emit('group-list', list);
 }
