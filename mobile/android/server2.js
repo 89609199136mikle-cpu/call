@@ -14,13 +14,12 @@ const io = socketIo(server, {
 
 app.use(cors());
 app.use(express.json());
-// Обслуживаем статические файлы из папки public2 (Android версия)
 app.use(express.static(path.join(__dirname, 'public2')));
 
-// ── Хранилище ──────────────────────────────────────────────
+// ========== ХРАНИЛИЩА ==========
 const users       = new Map(); // socketId → { username, userId, status }
-const userSockets = new Map(); // userId   → socketId
-const groups      = new Map(); // groupId  → { name, hostId, participants[], waiting[], chat[] }
+const userSockets = new Map(); // userId → socketId
+const groups      = new Map(); // groupId → { name, hostId, participants[], waiting[], chat[] }
 
 // Бесплатные STUN/TURN серверы (openrelay)
 const ICE_SERVERS = [
@@ -44,7 +43,7 @@ const ICE_SERVERS = [
   }
 ];
 
-// ── REST API ────────────────────────────────────────────────
+// ========== REST API ==========
 app.get('/api/ice-config', (req, res) => {
   res.json({ iceServers: ICE_SERVERS });
 });
@@ -66,12 +65,12 @@ app.get('/api/users', (req, res) => {
   res.json(list);
 });
 
-// Страница звонка (call1.html)
+// Страница звонка (Android)
 app.get('/call', (req, res) => {
   res.sendFile(path.join(__dirname, 'public2', 'call1.html'));
 });
 
-// ── Socket.IO ───────────────────────────────────────────────
+// ========== SOCKET.IO ==========
 io.on('connection', (socket) => {
   console.log('[socket] connect', socket.id);
 
