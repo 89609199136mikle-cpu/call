@@ -293,7 +293,6 @@ io.on('connection', (socket) => {
     broadcastGroups();
   });
 
-  // ─── Поднять руку ─────────────────────────────────────────────
   socket.on('raise-hand', ({ groupId }) => {
     io.to(`group:${groupId}`).emit('hand-raised', {
       userId: socket.userId,
@@ -301,7 +300,6 @@ io.on('connection', (socket) => {
     });
   });
 
-  // ─── Чат в группе ────────────────────────────────────────────
   socket.on('group-chat-message', ({ groupId, message }) => {
     const group = groups.get(groupId);
     if (!group) return;
