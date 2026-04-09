@@ -14,23 +14,14 @@ const io = socketIo(server, {
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-// ========== СТАТИЧЕСКИЕ ФАЙЛЫ (три версии) ==========
-app.use('/desktop', express.static(path.join(__dirname, 'public')));
-app.use('/android', express.static(path.join(__dirname, 'public2')));
-app.use('/ios', express.static(path.join(__dirname, 'public3')));
+// ========== Хранилища ==========
+const users       = new Map(); // socketId → { username, userId, status }
+const userSockets = new Map(); // userId → socketId
+const groups      = new Map(); // groupId → { name, hostId, participants[], waiting[], chat[] }
 
-// Главные страницы
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.get('/android', (req, res) => res.sendFile(path.join(__dirname, 'public2', 'index1.html')));
-app.get('/ios', (req, res) => res.sendFile(path.join(__dirname, 'public3', 'index2.html')));
-
-// Страницы звонков
-app.get('/call', (req, res) => res.sendFile(path.join(__dirname, 'public', 'call.html')));
-app.get('/android/call', (req, res) => res.sendFile(path.join(__dirname, 'public2', 'call1.html')));
-app.get('/ios/call', (req, res) => res.sendFile(path.join(__dirname, 'public3', 'call2.html')));
-
-// API для ICE конфигурации
+// Бесплатные STUN/TURN серверы (openrelay)
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
@@ -52,6 +43,7 @@ const ICE_SERVERS = [
   }
 ];
 
+// ========== REST API ==========
 app.get('/api/ice-config', (req, res) => {
   res.json({ iceServers: ICE_SERVERS });
 });
@@ -73,16 +65,11 @@ app.get('/api/users', (req, res) => {
   res.json(list);
 });
 
-// ========== ХРАНИЛИЩА ==========
-const users       = new Map(); // socketId → { username, userId, status }
-const userSockets = new Map(); // userId → socketId
-const groups      = new Map(); // groupId → { name, hostId, participants[], waiting[], chat[] }
-
-// ========== Socket.IO (единый для всех версий) ==========
+// ========== Socket.IO ==========
 io.on('connection', (socket) => {
   console.log('[socket] connect', socket.id);
 
-  // Регистрация
+  // ─── Регистрация ───────────────────────────────────────────
   socket.on('register', ({ username, userId }) => {
     const oldSocketId = userSockets.get(userId);
     if (oldSocketId && oldSocketId !== socket.id) {
@@ -101,7 +88,7 @@ io.on('connection', (socket) => {
     if (u) { u.status = status; broadcastUserList(); }
   });
 
-  // Личный звонок
+  // ─── Личный звонок ──────────────────────────────────────────
   socket.on('call-user', ({ targetId, callType }) => {
     const targetSocketId = userSockets.get(targetId);
     if (targetSocketId && io.sockets.sockets.get(targetSocketId)) {
@@ -148,7 +135,7 @@ io.on('connection', (socket) => {
     broadcastUserList();
   });
 
-  // WebRTC сигналинг (личный)
+  // ─── WebRTC сигналинг (личный) ──────────────────────────────
   socket.on('offer', ({ targetId, offer }) => {
     const sid = userSockets.get(targetId);
     if (sid) io.to(sid).emit('offer', { from: socket.userId, offer });
@@ -164,7 +151,7 @@ io.on('connection', (socket) => {
     if (sid) io.to(sid).emit('ice-candidate', { from: socket.userId, candidate });
   });
 
-  // Групповые звонки
+  // ─── Групповые звонки ────────────────────────────────────────
   socket.on('create-group', ({ groupName, groupId }) => {
     if (!groups.has(groupId)) {
       groups.set(groupId, {
@@ -272,7 +259,7 @@ io.on('connection', (socket) => {
     socket.emit('group-list', list);
   });
 
-  // WebRTC сигналинг (групповой)
+  // ─── WebRTC сигналинг (групповой) ───────────────────────────
   socket.on('group-offer', ({ groupId, targetId, offer }) => {
     const sid = userSockets.get(targetId);
     if (sid) io.to(sid).emit('group-offer', { from: socket.userId, fromName: socket.username, offer });
@@ -317,6 +304,7 @@ io.on('connection', (socket) => {
     io.to(`group:${groupId}`).emit('group-chat-message', msg);
   });
 
+  // ─── Отключение ───────────────────────────────────────────────
   socket.on('disconnect', () => {
     console.log('[socket] disconnect', socket.id, socket.userId);
     if (socket.userId) {
@@ -343,11 +331,12 @@ io.on('connection', (socket) => {
   });
 });
 
+// ── Утилиты ─────────────────────────────────────────────────
 function broadcastUserList() {
   const list = Array.from(userSockets.entries()).map(([userId, socketId]) => ({
     userId,
     username: users.get(socketId)?.username || 'Unknown',
-    status: users.get(socketId)?.status || 'online'
+    status:   users.get(socketId)?.status   || 'online'
   }));
   io.emit('user-list', list);
 }
@@ -364,5 +353,5 @@ function broadcastGroups() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 CraneCall unified server running on port ${PORT}`);
+  console.log(`🚀 CraneCall server running on port ${PORT}`);
 });
