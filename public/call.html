@@ -650,7 +650,6 @@
         callStatusEl.textContent = 'Ожидание допуска...';
         remoteSubBig.textContent = 'Ожидание допуска от организатора';
       }
-
       socket.on('admitted-to-group', async ({ groupId: gid, hostId, participants: parts, chat }) => {
         isHost = (hostId === currentUser.userId);
         showToast('Вы вошли в конференцию');
@@ -662,7 +661,6 @@
           if (p.userId !== currentUser.userId) await createGroupOffer(p.userId);
         }
       });
-
       socket.on('waiting-for-admission', () => { callStatusEl.textContent = 'Ждём разрешения...'; });
       socket.on('rejected-from-group', () => { showToast('Вас не пустили в конференцию', true); setTimeout(() => window.close(), 2000); });
       socket.on('waiting-list-update', ({ waiting }) => { if (isHost) renderWaitingList(waiting); });
