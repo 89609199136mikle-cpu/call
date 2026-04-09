@@ -550,7 +550,7 @@
   let socket = null;
   let currentUser = null;
   let callData = null;
-  let peerConnection = null;          // для личного звонка
+  let peerConnection = null;
   let localStream = null;
   let screenStream = null;
   let isScreenSharing = false;
@@ -562,15 +562,13 @@
   let mediaRecorder = null;
   let recordedChunks = [];
 
-  // Групповые переменные
   let isGroup = false;
   let groupId = null;
   let isHost = false;
-  let groupPeers = new Map(); // userId -> RTCPeerConnection
+  let groupPeers = new Map();
   let participants = [];
   let waitingUsers = [];
 
-  // DOM элементы
   const callNameEl = document.getElementById('callName');
   const callStatusEl = document.getElementById('callStatus');
   const callTimerEl = document.getElementById('callTimer');
@@ -636,14 +634,12 @@
   // ============================================================
   function setupSocketListeners() {
     if (!isGroup) {
-      // Личный звонок
       if (callData.isIncoming) {
         socket.emit('accept-call', { fromId: callData.targetId });
         startPersonalCall(true);
       } else {
         startPersonalCall(false);
       }
-
       socket.on('offer', async (data) => await handleOffer(data));
       socket.on('answer', async (data) => await handleAnswer(data));
       socket.on('ice-candidate', async (data) => {
@@ -654,7 +650,6 @@
       socket.on('call-rejected', () => { showToast('Звонок отклонён'); setTimeout(() => window.close(), 1500); });
       socket.on('call-ended', () => { showToast('Звонок завершён'); setTimeout(() => window.close(), 1500); });
     } else {
-      // Групповой звонок
       if (isHost) {
         joinGroupCall();
       } else {
@@ -662,7 +657,6 @@
         callStatusEl.textContent = 'Ожидание допуска...';
         remoteSubBig.textContent = 'Ожидание допуска от организатора';
       }
-
       socket.on('admitted-to-group', async ({ groupId: gid, hostId, participants: parts, chat }) => {
         isHost = (hostId === currentUser.userId);
         showToast('Вы вошли в конференцию');
@@ -674,16 +668,10 @@
           if (p.userId !== currentUser.userId) await createGroupOffer(p.userId);
         }
       });
-
       socket.on('waiting-for-admission', () => { callStatusEl.textContent = 'Ждём разрешения...'; });
       socket.on('rejected-from-group', () => { showToast('Вас не пустили в конференцию', true); setTimeout(() => window.close(), 2000); });
-      socket.on('waiting-list-update', ({ waiting }) => {
-        if (isHost) renderWaitingList(waiting);
-      });
-      socket.on('group-participants-update', ({ participants: p }) => {
-        participants = p;
-        renderParticipants();
-      });
+      socket.on('waiting-list-update', ({ waiting }) => { if (isHost) renderWaitingList(waiting); });
+      socket.on('group-participants-update', ({ participants: p }) => { participants = p; renderParticipants(); });
       socket.on('host-changed', ({ newHostId }) => {
         if (newHostId === currentUser.userId) { isHost = true; showToast('Вы стали организатором'); renderParticipants(); }
       });
@@ -711,11 +699,9 @@
     try {
       localStream = await getLocalStream(callData.callType === 'video');
       localVideo.srcObject = localStream;
-
       const iceServers = await fetchIceServers();
       peerConnection = new RTCPeerConnection({ iceServers });
       localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
-
       peerConnection.onicecandidate = e => {
         if (e.candidate) socket.emit('ice-candidate', { targetId: callData.targetId, candidate: e.candidate });
       };
@@ -734,7 +720,6 @@
           applyBandwidth();
         }
       };
-
       if (!isAnswering) {
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
@@ -1095,7 +1080,6 @@
     return String(str).replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
   }
 
-  // Перетаскивание PiP
   (function() {
     const pip = document.getElementById('localPip');
     let drag = false, ox, oy;
@@ -1119,7 +1103,6 @@
     document.addEventListener('mouseup', () => { drag = false; pip.style.transition = ''; });
   })();
 
-  // Горячие клавиши для мобильных (только если есть клавиатура)
   document.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT') return;
     if (e.key === 'm' || e.key === 'M') toggleMute();
