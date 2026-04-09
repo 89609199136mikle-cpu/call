@@ -286,6 +286,35 @@
       transition: background 0.2s;
     }
     .create-group-btn:active { background: rgba(62,130,255,0.2); }
+    .group-item {
+      background: #1c1c2e;
+      border-radius: 20px;
+      padding: 12px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+    }
+    .group-avatar {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, #3e82ff, #00c4ff);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+    .group-name {
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .group-meta {
+      font-size: 12px;
+      color: #8b9dc3;
+      margin-left: auto;
+    }
 
     /* Modal */
     .modal-overlay {
@@ -339,7 +368,61 @@
       color: #8b9dc3;
     }
 
-    /* Toast */
+    /* Incoming call popup */
+    .incoming-popup {
+      position: fixed;
+      bottom: 24px;
+      left: 16px;
+      right: 16px;
+      background: #1c1c2e;
+      border: 1px solid #3e82ff;
+      border-radius: 28px;
+      padding: 20px;
+      z-index: 300;
+      animation: slideUp 0.3s;
+      backdrop-filter: blur(12px);
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .incoming-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .incoming-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3e82ff, #00c4ff);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      animation: ring 1s infinite;
+    }
+    @keyframes ring {
+      0% { box-shadow: 0 0 0 0 rgba(62,130,255,0.4); }
+      70% { box-shadow: 0 0 0 12px rgba(62,130,255,0); }
+      100% { box-shadow: 0 0 0 0 rgba(62,130,255,0); }
+    }
+    .incoming-actions {
+      display: flex;
+      gap: 12px;
+    }
+    .incoming-btn {
+      flex: 1;
+      padding: 12px;
+      border-radius: 40px;
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .accept { background: #2ed573; color: white; }
+    .reject { background: #ff4757; color: white; }
+
     .toast {
       position: fixed;
       bottom: 80px;
@@ -352,14 +435,12 @@
       font-size: 13px;
       font-weight: 600;
       z-index: 200;
-      white-space: nowrap;
       animation: fadeIn 0.2s;
     }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateX(-50%) translateY(10px); }
       to { opacity: 1; transform: translateX(-50%) translateY(0); }
     }
-
     .hidden { display: none; }
   </style>
 </head>
@@ -428,10 +509,11 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-  // ========== ГЛОБАЛЬНЫЕ ==========
+  // ========== GLOBALS ==========
   let socket = null;
   let currentUser = null;
   let iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
+  let callState = 'idle';
 
   // DOM
   const authOverlay = document.getElementById('authOverlay');
@@ -448,7 +530,7 @@
     groups: document.getElementById('groupsSection')
   };
 
-  // ========== ПОМОЩНИКИ ==========
+  // ========== HELPERS ==========
   function showToast(msg, isError = false) {
     const t = document.createElement('div');
     t.className = 'toast';
@@ -468,7 +550,7 @@
     registerBtn.click();
   }
 
-  // Переключение вкладок
+  // Tab switching
   navItems.forEach(item => {
     item.addEventListener('click', () => {
       const tab = item.dataset.tab;
@@ -480,7 +562,7 @@
     });
   });
 
-  // ========== РЕГИСТРАЦИЯ ==========
+  // ========== REGISTRATION ==========
   registerBtn.addEventListener('click', async () => {
     const username = document.getElementById('regUsername').value.trim();
     const userId = document.getElementById('regUserId').value.trim().toLowerCase();
@@ -488,7 +570,6 @@
     currentUser = { username, userId };
     const res = await fetch('/api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,userId}) });
     if (!res.ok) { showToast('Ошибка регистрации', true); return; }
-    // получить ICE конфигурацию
     try {
       const iceRes = await fetch('/api/ice-config');
       const iceData = await iceRes.json();
@@ -506,7 +587,7 @@
     showToast(`Добро пожаловать, ${username}`);
   });
 
-  // ========== СОКЕТЫ ==========
+  // ========== SOCKET LISTENERS ==========
   function setupSocketListeners() {
     socket.on('user-list', (users) => {
       const others = users.filter(u => u.userId !== currentUser.userId);
@@ -534,37 +615,97 @@
         return;
       }
       groupsList.innerHTML = grps.map(g => `
-        <div class="card" onclick="joinGroup('${g.groupId}','${escapeHtml(g.name)}')">
-          <div class="card-avatar" style="border-radius: 18px;">👥</div>
-          <div class="card-info">
-            <div class="card-name">${escapeHtml(g.name)}</div>
-            <div class="card-status">${g.participants} участников</div>
-          </div>
-          <button class="call-btn" style="background:rgba(46,213,115,0.2);color:#2ed573;">🔊</button>
+        <div class="group-item" onclick="joinGroup('${g.groupId}','${escapeHtml(g.name)}')">
+          <div class="group-avatar">👥</div>
+          <div class="group-name">${escapeHtml(g.name)}</div>
+          <div class="group-meta">${g.participants} участ.</div>
         </div>
       `).join('');
     });
 
     socket.on('incoming-call', (data) => {
-      if (Notification.permission === 'granted') {
-        new Notification(`Входящий звонок от ${data.fromName}`, { body: data.callType === 'video' ? 'Видеозвонок' : 'Аудиозвонок' });
+      if (callState !== 'idle') {
+        socket.emit('reject-call', { fromId: data.from });
+        return;
       }
+      showIncomingCall(data);
+    });
+
+    socket.on('call-error', ({ message }) => showToast(message, true));
+    socket.on('call-rejected', () => showToast('Звонок отклонён', true));
+    socket.on('call-ended', () => showToast('Звонок завершён'));
+  }
+
+  // ========== INCOMING CALL ==========
+  function showIncomingCall({ from, fromName, callType }) {
+    const popup = document.createElement('div');
+    popup.className = 'incoming-popup';
+    popup.innerHTML = `
+      <div class="incoming-header">
+        <div class="incoming-avatar">${fromName[0].toUpperCase()}</div>
+        <div><strong>${escapeHtml(fromName)}</strong><br><span style="font-size:12px;">${callType === 'video' ? '📹 Видеозвонок' : '🎙️ Аудиозвонок'}</span></div>
+      </div>
+      <div class="incoming-actions">
+        <button class="incoming-btn accept" id="acceptCallBtn">Ответить</button>
+        <button class="incoming-btn reject" id="rejectCallBtn">Отклонить</button>
+      </div>
+    `;
+    document.body.appendChild(popup);
+    playRingSound();
+    const accept = () => {
+      popup.remove();
+      stopRingSound();
       localStorage.setItem('callData', JSON.stringify({
         type: 'personal',
         myUserId: currentUser.userId,
         myUsername: currentUser.username,
-        targetId: data.from,
-        targetName: data.fromName,
-        callType: data.callType || 'video',
+        targetId: from,
+        targetName: fromName,
+        callType: callType || 'video',
         isIncoming: true,
         iceServers
       }));
-      window.open('/call', '_blank');
-    });
+      socket.emit('accept-call', { fromId: from });
+      window.open('/call', '_blank', 'width=1000,height=700');
+    };
+    const reject = () => {
+      popup.remove();
+      stopRingSound();
+      socket.emit('reject-call', { fromId: from });
+    };
+    popup.querySelector('#acceptCallBtn').onclick = accept;
+    popup.querySelector('#rejectCallBtn').onclick = reject;
+    setTimeout(() => {
+      if (document.body.contains(popup)) reject();
+    }, 30000);
   }
 
-  // ========== ЗВОНКИ ==========
+  let ringInterval = null;
+  function playRingSound() {
+    try {
+      ringInterval = setInterval(() => {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 440;
+        gain.gain.value = 0.3;
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        osc.stop(ctx.currentTime + 0.5);
+      }, 1500);
+    } catch(e) {}
+  }
+  function stopRingSound() {
+    if (ringInterval) clearInterval(ringInterval);
+    ringInterval = null;
+  }
+
+  // ========== START CALL ==========
   window.startCall = (targetId, targetName) => {
+    if (callState !== 'idle') { showToast('Уже есть активный звонок', true); return; }
+    callState = 'calling';
     localStorage.setItem('callData', JSON.stringify({
       type: 'personal',
       myUserId: currentUser.userId,
@@ -576,10 +717,11 @@
       iceServers
     }));
     socket.emit('call-user', { targetId, callType: 'video' });
-    window.open('/call', '_blank');
+    window.open('/call', '_blank', 'width=1000,height=700');
+    setTimeout(() => { if (callState === 'calling') callState = 'idle'; }, 5000);
   };
 
-  // ========== ГРУППЫ ==========
+  // ========== GROUP FUNCTIONS ==========
   function openGroupModal() {
     document.getElementById('groupModal').classList.remove('hidden');
   }
@@ -601,7 +743,7 @@
       iceServers
     }));
     closeGroupModal();
-    window.open('/call', '_blank');
+    window.open('/call', '_blank', 'width=1000,height=700');
   }
   window.joinGroup = (groupId, groupName) => {
     localStorage.setItem('callData', JSON.stringify({
@@ -614,18 +756,18 @@
       iceServers
     }));
     socket.emit('join-group-request', { groupId });
-    window.open('/call', '_blank');
+    window.open('/call', '_blank', 'width=1000,height=700');
   };
   function loadGroups() {
     socket.emit('get-groups');
   }
 
-  // Запрос уведомлений
+  // Notifications
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
   }
 
-  // Восстановление пользователя
+  // Restore user
   const saved = localStorage.getItem('craheapp_user');
   if (saved) {
     try {
