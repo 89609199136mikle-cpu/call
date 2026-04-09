@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-  <title>CraneCall — Мобильные видеозвонки</title>
+  <title>CraneCall — Мобильные видеозвонки (Android)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <style>
@@ -110,7 +110,6 @@
       height: 100%;
       object-fit: cover;
     }
-    /* Заглушка когда нет видео */
     .no-video-overlay {
       position: absolute;
       top: 0;
@@ -152,7 +151,7 @@
       color: #8b9dc3;
     }
 
-    /* Локальное видео (перетаскиваемое) */
+    /* Local video (перетаскиваемое) */
     .local-video-pip {
       position: absolute;
       bottom: 80px;
@@ -194,7 +193,7 @@
       z-index: 2;
     }
 
-    /* ========== GROUP GRID (мобильная адаптация) ========== */
+    /* Group grid */
     .group-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -239,7 +238,7 @@
       animation: pulse 1s infinite;
     }
 
-    /* ========== BOTTOM CONTROLS (мобильная версия) ========== */
+    /* Controls (mobile bottom bar) */
     .call-controls {
       position: absolute;
       bottom: 0;
@@ -299,7 +298,7 @@
     .ctrl-btn.off .ctrl-label { color: #ff4757; }
     .ctrl-btn.end-call .ctrl-icon { background: #ff4757; box-shadow: 0 2px 8px rgba(255,71,87,0.4); }
 
-    /* Вторичные кнопки (мобильные) */
+    /* Secondary buttons */
     .sec-btn {
       display: flex;
       align-items: center;
@@ -315,7 +314,7 @@
     }
     .sec-btn.active { background: rgba(62,130,255,0.4); }
 
-    /* ========== SIDE PANELS ========== */
+    /* Side panels */
     .side-panel {
       position: absolute;
       top: 0;
@@ -429,7 +428,7 @@
       padding: 10px 12px;
     }
 
-    /* Toast уведомления */
+    /* Toast */
     .toast-message {
       position: fixed;
       bottom: 90px;
@@ -451,7 +450,6 @@
     }
     .hidden { display: none; }
 
-    /* Адаптив для совсем маленьких экранов */
     @media (max-width: 480px) {
       .ctrl-icon { width: 42px; height: 42px; }
       .ctrl-icon svg { width: 18px; height: 18px; }
@@ -484,7 +482,6 @@
   </div>
 
   <div class="video-area" id="videoArea">
-    <!-- Личный звонок -->
     <div id="personalView" style="height:100%; position:relative;">
       <video id="remoteVideo" class="remote-video" autoplay playsinline style="width:100%;height:100%;object-fit:cover;"></video>
       <div id="noVideoPlaceholder" class="no-video-overlay">
@@ -493,10 +490,8 @@
         <div class="no-video-sub" id="remoteSubBig">Соединение...</div>
       </div>
     </div>
-    <!-- Групповой звонок (сетка) -->
     <div id="groupView" class="group-grid" style="display: none;"></div>
 
-    <!-- Локальное видео (PiP) -->
     <div class="local-video-pip" id="localPip">
       <video id="localVideo" autoplay playsinline muted></video>
       <button class="pip-toggle" onclick="togglePipSize()">⤢</button>
@@ -525,21 +520,21 @@
     <div class="controls-row">
       <button class="sec-btn" id="screenBtn" onclick="toggleScreenShare()"><svg viewBox="0 0 24 24" width="12" height="12"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span>Экран</span></button>
       <button class="sec-btn" id="chatBtn" onclick="togglePanel('chat')"><svg viewBox="0 0 24 24" width="12" height="12"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Чат</span></button>
-      <button class="sec-btn" id="participantsBtn" onclick="togglePanel('participants')"><svg viewBox="0 0 24 24" width="12" height="12"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Участники</span></button>
-      <button class="sec-btn" id="handBtn" onclick="raiseHand()"><svg viewBox="0 0 24 24" width="12" height="12"><path d="M18 11V6a2 2 0 0 0-4 0v3M14 9V3a2 2 0 0 0-4 0v6M10 9.5V3a2 2 0 0 0-4 0v9"/><path d="M6 12v-2a2 2 0 0 0-2 0v6c0 3.31 2.69 6 6 6h2a6 6 0 0 0 6-6v-5a2 2 0 0 0-4 0"/></svg><span>Рука</span></button>
+      <button class="sec-btn" id="participantsBtn" onclick="togglePanel('participants')"><svg viewBox="0 0 24 24" width="12" height="12"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span>Участники</span></button>
+      <button class="sec-btn" id="handBtn" onclick="raiseHand()"><svg viewBox="0 0 24 24" width="12" height="12"><path d="M18 11V6a2 2 0 0 0-4 0v3M14 9V3a2 2 0 0 0-4 0v6M10 9.5V3a2 2 0 0 0-4 0v9"/><path d="M6 12v-2a2 2 0 0 0-2 0v6c0 3.31 2.69 6 6 6h2a6 6 0 0 0 6-6v-5a2 2 0 0 0-4 0"/></svg></span><span>Рука</span></button>
       <button class="sec-btn" id="recordBtn" onclick="toggleRecord()"><svg viewBox="0 0 24 24" width="12" height="12"><circle cx="12" cy="12" r="8" fill="#ff4757"/></svg><span>Запись</span></button>
     </div>
   </div>
 </div>
 
-<!-- Чат панель -->
+<!-- Chat panel -->
 <div id="chatPanel" class="side-panel">
   <div class="panel-header"><span>💬 Чат</span><button class="close-panel" onclick="closePanel('chat')">✕</button></div>
   <div class="chat-messages" id="chatMessages"></div>
   <div class="chat-input-area"><input type="text" class="chat-input" id="chatInput" placeholder="Сообщение..."><button class="chat-send" onclick="sendChatMessage()">➤</button></div>
 </div>
 
-<!-- Участники панель -->
+<!-- Participants panel -->
 <div id="participantsPanel" class="side-panel">
   <div class="panel-header"><span>👥 Участники</span><button class="close-panel" onclick="closePanel('participants')">✕</button></div>
   <div class="participants-list" id="participantsList"></div>
